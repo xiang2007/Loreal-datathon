@@ -30,9 +30,9 @@ except ImportError:
     }
 
 try:
-    from data_processing import DataProcessor
-    from analysis import CommentAnalyzer
-    from dashboard import CommentDashboard
+    from src.data_processing import DataProcessor
+    from src.analysis import CommentAnalyzer
+    from src.dashboard import CommentDashboard
 except ImportError as e:
     st.error(f"Error importing modules: {e}")
     st.stop()
