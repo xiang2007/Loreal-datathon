@@ -278,6 +278,65 @@ class AIAssistant:
         else:
             return self._answer_with_rules(question)
     
+    def get_short_answer(self, question):
+        """Get a short, concise answer (max 2-3 sentences)"""
+        if self.df is None or self.df.empty:
+            return "No data available for analysis."
+        
+        question_lower = question.lower()
+        
+        # Quick responses for common questions
+        if any(word in question_lower for word in ['spam', 'fake']):
+            spam_rate = (self.df.get('is_spam', pd.Series()) == True).mean() * 100
+            if spam_rate < 10:
+                return f"✅ Low spam rate: {spam_rate:.1f}%. Your community is healthy!"
+            elif spam_rate < 20:
+                return f"⚠️ Moderate spam: {spam_rate:.1f}%. Consider enhanced moderation."
+            else:
+                return f"🚨 High spam: {spam_rate:.1f}%. Implement stricter controls immediately."
+        
+        elif any(word in question_lower for word in ['sentiment', 'positive', 'negative']):
+            positive_rate = (self.df.get('vader_sentiment', pd.Series()) == 'positive').mean() * 100
+            if positive_rate > 70:
+                return f"😊 Excellent sentiment: {positive_rate:.1f}% positive. Audience loves your content!"
+            elif positive_rate > 50:
+                return f"👍 Good sentiment: {positive_rate:.1f}% positive. Room for improvement."
+            else:
+                return f"😐 Mixed sentiment: {positive_rate:.1f}% positive. Focus on audience engagement."
+        
+        elif any(word in question_lower for word in ['quality', 'score']):
+            avg_quality = self.df.get('quality_score', pd.Series()).mean()
+            if avg_quality > 3.5:
+                return f"⭐ High quality: {avg_quality:.1f}/5. Excellent engagement!"
+            elif avg_quality > 2.5:
+                return f"👍 Good quality: {avg_quality:.1f}/5. Some improvement possible."
+            else:
+                return f"📈 Quality needs work: {avg_quality:.1f}/5. Focus on better content."
+        
+        elif any(word in question_lower for word in ['engagement', 'interact']):
+            engagement_dist = self.df.get('engagement_type', pd.Series()).value_counts(normalize=True)
+            top_engagement = engagement_dist.index[0] if len(engagement_dist) > 0 else 'general'
+            percentage = engagement_dist.iloc[0] * 100 if len(engagement_dist) > 0 else 0
+            return f"🎯 Top engagement: {top_engagement} ({percentage:.1f}%). Focus on this type!"
+        
+        elif any(word in question_lower for word in ['recommend', 'tip', 'advice']):
+            spam_rate = (self.df.get('is_spam', pd.Series()) == True).mean() * 100
+            avg_quality = self.df.get('quality_score', pd.Series()).mean()
+            
+            if spam_rate > 15:
+                return "🛡️ Priority: Reduce spam with better moderation and community guidelines."
+            elif avg_quality < 3.0:
+                return "⭐ Priority: Improve content quality with engaging call-to-actions."
+            else:
+                return "🎯 Priority: Maintain current quality and expand successful content themes."
+        
+        else:
+            # General summary
+            total = len(self.df)
+            spam_rate = (self.df.get('is_spam', pd.Series()) == True).mean() * 100
+            avg_quality = self.df.get('quality_score', pd.Series()).mean()
+            return f"📊 Summary: {total:,} comments, {spam_rate:.1f}% spam, {avg_quality:.1f}/5 quality."
+    
     def _answer_with_gemini(self, question):
         """Answer questions using Gemini AI"""
         try:

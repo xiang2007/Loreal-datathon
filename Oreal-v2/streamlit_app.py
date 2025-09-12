@@ -412,56 +412,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-def render_ai_chat_bubble():
-    """Render floating AI chat bubble"""
-    if st.session_state.analysis_complete and st.session_state.analysis_results is not None:
-        # Initialize chat state
-        if 'chat_open' not in st.session_state:
-            st.session_state.chat_open = False
-        if 'bubble_chat_history' not in st.session_state:
-            st.session_state.bubble_chat_history = []
-        
-        # Chat bubble HTML and JavaScript
-        chat_bubble_html = f"""
-        <div id="ai-chat-bubble" class="chat-bubble" onclick="toggleChat()">
-            <div class="chat-bubble-icon">🤖</div>
-        </div>
-        
-        <div id="chat-window" class="chat-window" style="display: {'block' if st.session_state.chat_open else 'none'};">
-            <div class="chat-header">
-                <span>🤖 AI Assistant</span>
-                <span onclick="toggleChat()" style="cursor: pointer; font-size: 18px;">×</span>
-            </div>
-            <div class="chat-messages" id="chat-messages">
-                <div class="ai-message">
-                    Hi! I'm your AI assistant. I can answer questions about your comment analysis data. Try asking me about spam rates, sentiment, engagement, or recommendations!
-                </div>
-            </div>
-            <div class="chat-input-area">
-                <div class="quick-questions">
-                    <button class="quick-question-btn" onclick="askQuestion('What is my spam rate?')">Spam Rate</button>
-                    <button class="quick-question-btn" onclick="askQuestion('How is my sentiment?')">Sentiment</button>
-                    <button class="quick-question-btn" onclick="askQuestion('Give me recommendations')">Tips</button>
-                </div>
-            </div>
-        </div>
-        
-        <script>
-        function toggleChat() {{
-            const chatWindow = document.getElementById('chat-window');
-            const isVisible = chatWindow.style.display === 'block';
-            chatWindow.style.display = isVisible ? 'none' : 'block';
-        }}
-        
-        function askQuestion(question) {{
-            // This would trigger Streamlit to process the question
-            const event = new CustomEvent('aiQuestion', {{ detail: question }});
-            document.dispatchEvent(event);
-        }}
-        </script>
-        """
-        
-        st.markdown(chat_bubble_html, unsafe_allow_html=True)
+
 
 def main():
     # Enhanced Header with Logo and Branding
@@ -488,7 +439,7 @@ def main():
     # Enhanced Sidebar
     st.sidebar.markdown("""
     <div style="text-align: center; padding: 1.5rem; background: linear-gradient(135deg, #E31837, #ff4757); border-radius: 16px; margin-bottom: 2rem; color: white;">
-        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">🤖 AI Dashboard</h2>
+        <h2 style="margin: 0; font-size: 1.5rem; font-weight: 600;">📊 Analytics Dashboard</h2>
         <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.9;">Powered by Advanced Analytics</p>
     </div>
     """, unsafe_allow_html=True)
@@ -505,63 +456,11 @@ def main():
     st.sidebar.markdown("### 🧭 Navigation")
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["📤 Upload Data", "🔍 Analysis Results", "📈 Visualizations", "🤖 AI Insights & Assistant", "📋 Data Export"],
+        ["📤 Upload Data", "🔍 Analysis Results", "📈 Visualizations", "🤖 AI Assistant", "📋 Data Export"],
         help="Navigate through different sections of the analysis platform"
     )
     
-    # Enhanced AI Quick Summary in Sidebar
-    if st.session_state.analysis_complete and st.session_state.analysis_results is not None:
-        st.sidebar.markdown("---")
-        st.sidebar.markdown("""
-        <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 1rem; border-radius: 12px; margin: 1rem 0;">
-            <h3 style="margin: 0 0 1rem 0; color: #E31837; font-size: 1.1rem;">🤖 AI Quick Summary</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        df = st.session_state.analysis_results
-        ai_assistant = AIAssistant(df)
-        
-        # Enhanced Quick metrics with better styling
-        total_comments = len(df)
-        spam_rate = (df.get('is_spam', pd.Series()) == True).mean() * 100
-        avg_quality = df.get('quality_score', pd.Series()).mean()
-        
-        # Custom metric cards for sidebar
-        col1, col2 = st.sidebar.columns(2)
-        with col1:
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 0.5rem;">
-                <div style="font-size: 1.5rem; font-weight: 600; color: #E31837;">{total_comments:,}</div>
-                <div style="font-size: 0.8rem; color: #6c757d;">Comments</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            spam_color = "#28a745" if spam_rate < 10 else "#ffc107" if spam_rate < 20 else "#dc3545"
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 0.5rem;">
-                <div style="font-size: 1.5rem; font-weight: 600; color: {spam_color};">{spam_rate:.1f}%</div>
-                <div style="font-size: 0.8rem; color: #6c757d;">Spam Rate</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        quality_color = "#28a745" if avg_quality > 3.5 else "#ffc107" if avg_quality > 2.5 else "#dc3545"
-        st.sidebar.markdown(f"""
-        <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid #dee2e6; margin-bottom: 1rem;">
-            <div style="font-size: 1.5rem; font-weight: 600; color: {quality_color};">{avg_quality:.2f}/5</div>
-            <div style="font-size: 0.8rem; color: #6c757d;">Quality Score</div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Enhanced Quick AI insight button
-        if st.sidebar.button("💡 Get AI Insight", use_container_width=True, help="Get instant AI-powered insights about your data"):
-            insight = ai_assistant._get_key_insight()
-            st.sidebar.markdown(f"""
-            <div style="background: linear-gradient(135deg, #e8f4fd, #f0f8ff); padding: 1rem; border-radius: 12px; border-left: 4px solid #1f77b4; margin-top: 1rem;">
-                <strong>💡 AI Insight:</strong><br>
-                {insight}
-            </div>
-            """, unsafe_allow_html=True)
+
     
     # Main page routing
     if page == "📤 Upload Data":
@@ -570,13 +469,12 @@ def main():
         analysis_page()
     elif page == "📈 Visualizations":
         visualization_page()
-    elif page == "🤖 AI Insights & Assistant":
-        insights_page()
+    elif page == "🤖 AI Assistant":
+        ai_assistant_page()
     elif page == "📋 Data Export":
         export_page()
     
-    # Render floating AI chat bubble
-    render_ai_chat_bubble()
+
 
 def check_system_resources():
     """Check system resources for large dataset processing"""
@@ -1914,13 +1812,12 @@ def visualization_page():
         """, unsafe_allow_html=True)
     
     # Tabbed visualization sections
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🎯 Engagement Analysis", 
         "😊 Sentiment Insights", 
         "⭐ Quality Metrics", 
         "🏷️ Beauty Categories",
-        "🎥 Video Performance", 
-        "📅 Temporal Trends"
+        "🎥 Video Performance"
     ])
     
     with tab1:
@@ -2517,652 +2414,370 @@ def visualization_page():
             """)
     
     with tab5:
-        st.markdown("### 🎥 Video Performance Analytics")
+        st.markdown("### 🎥 Video Performance")
         
         if 'title' in filtered_df.columns:
-            # Video-level aggregation
-            video_agg = {
-                'quality_score': ['mean', 'std', 'count'],
-                'vader_score': 'mean',
+            # Simple video analysis
+            video_stats = filtered_df.groupby('title').agg({
+                'quality_score': 'mean',
+                'textOriginal_cleaned': 'count',
+                'vader_sentiment': lambda x: (x == 'positive').mean() * 100,
                 'is_spam': lambda x: (x == True).mean() * 100
-            }
+            }).round(2)
             
-            if 'likeCount' in filtered_df.columns:
-                video_agg['likeCount'] = ['sum', 'mean']
-            
-            video_stats = filtered_df.groupby('title').agg(video_agg).round(3)
-            
-            # Flatten column names
-            video_stats.columns = ['_'.join(col).strip() if col[1] else col[0] for col in video_stats.columns.values]
+            video_stats.columns = ['Quality Score', 'Comments', 'Positive %', 'Spam %']
             video_stats = video_stats.reset_index()
             
+            # Overview metrics
+            st.markdown("#### 📊 Quick Overview")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                total_videos = len(video_stats)
+                st.metric("Total Videos", f"{total_videos}")
+            
+            with col2:
+                avg_quality = video_stats['Quality Score'].mean()
+                st.metric("Average Quality", f"{avg_quality:.1f}/5")
+            
+            with col3:
+                avg_comments = video_stats['Comments'].mean()
+                st.metric("Average Comments", f"{avg_comments:.0f}")
+            
             # Top performing videos
-            st.markdown("#### 🏆 Top Performing Videos by Quality")
+            st.markdown("#### 🏆 Top Performing Videos")
             
-            top_videos = video_stats.nlargest(10, 'quality_score_mean')
+            # Sort by quality score
+            top_videos = video_stats.nlargest(5, 'Quality Score')
             
-            fig_top_videos = px.bar(
+            # Simple bar chart
+            fig_top = px.bar(
                 top_videos,
-                x='quality_score_mean',
+                x='Quality Score',
                 y='title',
                 orientation='h',
-                title="Top 10 Videos by Average Quality Score",
-                color='quality_score_mean',
-                color_continuous_scale='Viridis'
+                title="Top 5 Videos by Quality Score",
+                color='Quality Score',
+                color_continuous_scale='RdYlGn',
+                text='Quality Score'
             )
-            fig_top_videos.update_layout(
+            
+            fig_top.update_traces(textposition='outside')
+            fig_top.update_layout(
                 yaxis={'categoryorder': 'total ascending'},
-                height=500
+                height=400,
+                showlegend=False
             )
-            st.plotly_chart(fig_top_videos, use_container_width=True)
             
-            # Video performance scatter plot
+            st.plotly_chart(fig_top, use_container_width=True)
+            
+            # Simple performance table
+            st.markdown("#### 📋 Video Performance Summary")
+            
+            # Add performance indicators
+            def get_performance_indicator(quality, spam_rate):
+                if quality >= 4.0 and spam_rate < 10:
+                    return "🌟 Excellent"
+                elif quality >= 3.0 and spam_rate < 20:
+                    return "👍 Good"
+                elif quality >= 2.0:
+                    return "😐 Average"
+                else:
+                    return "👎 Needs Work"
+            
+            video_stats['Performance'] = video_stats.apply(
+                lambda row: get_performance_indicator(row['Quality Score'], row['Spam %']), 
+                axis=1
+            )
+            
+            # Display simplified table
+            display_df = video_stats[['title', 'Quality Score', 'Comments', 'Positive %', 'Performance']].copy()
+            display_df.columns = ['Video Title', 'Quality', 'Comments', 'Positive %', 'Status']
+            
+            # Truncate long titles
+            display_df['Video Title'] = display_df['Video Title'].apply(
+                lambda x: x[:50] + "..." if len(x) > 50 else x
+            )
+            
+            st.dataframe(
+                display_df.sort_values('Quality', ascending=False),
+                use_container_width=True,
+                hide_index=True
+            )
+            
+            # Simple insights
+            st.markdown("#### 💡 Key Insights")
+            
+            excellent_count = (video_stats['Performance'] == '🌟 Excellent').sum()
+            needs_work_count = (video_stats['Performance'] == '👎 Needs Work').sum()
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if excellent_count > 0:
+                    st.success(f"🌟 {excellent_count} videos performing excellently!")
+                else:
+                    st.info("💡 Focus on improving video quality scores")
+            
+            with col2:
+                if needs_work_count > 0:
+                    st.warning(f"⚠️ {needs_work_count} videos need attention")
+                else:
+                    st.success("✅ All videos performing well!")
+            
+            # Best and worst performers
             if len(video_stats) > 1:
-                fig_video_scatter = px.scatter(
-                    video_stats,
-                    x='quality_score_mean',
-                    y='quality_score_count',
-                    size='quality_score_count',
-                    color='is_spam_<lambda>',
-                    title="Video Performance: Quality vs Comment Volume",
-                    labels={
-                        'quality_score_mean': 'Average Quality Score',
-                        'quality_score_count': 'Number of Comments',
-                        'is_spam_<lambda>': 'Spam Rate %'
-                    },
-                    hover_data=['title']
-                )
-                st.plotly_chart(fig_video_scatter, use_container_width=True)
-            
-            # Detailed video statistics table
-            st.markdown("#### 📋 Detailed Video Statistics")
-            
-            display_cols = ['title', 'quality_score_mean', 'quality_score_count', 'vader_score_mean', 'is_spam_<lambda>']
-            if 'likeCount_sum' in video_stats.columns:
-                display_cols.append('likeCount_sum')
-            
-            video_display = video_stats[display_cols].copy()
-            video_display.columns = ['Video Title', 'Avg Quality', 'Comment Count', 'Avg Sentiment', 'Spam Rate %'] + (['Total Likes'] if 'likeCount_sum' in video_stats.columns else [])
-            
-            styled_videos = video_display.style.background_gradient(
-                subset=['Avg Quality'], cmap='RdYlGn'
-            ).background_gradient(
-                subset=['Spam Rate %'], cmap='RdYlGn_r'
-            ).format({
-                'Avg Quality': '{:.2f}',
-                'Avg Sentiment': '{:.3f}',
-                'Spam Rate %': '{:.1f}%'
-            })
-            
-            st.dataframe(styled_videos, use_container_width=True)
-        else:
-            st.info("Video title information not available for detailed video analysis.")
-    
-    with tab6:
-        st.markdown("### 📅 Temporal Trends and Patterns")
-        
-        if 'publishedAt' in filtered_df.columns:
-            try:
-                # Convert to datetime and extract time components
-                filtered_df['datetime'] = pd.to_datetime(filtered_df['publishedAt'])
-                filtered_df['date'] = filtered_df['datetime'].dt.date
-                filtered_df['hour'] = filtered_df['datetime'].dt.hour
-                filtered_df['day_of_week'] = filtered_df['datetime'].dt.day_name()
+                best_video = video_stats.loc[video_stats['Quality Score'].idxmax()]
+                worst_video = video_stats.loc[video_stats['Quality Score'].idxmin()]
+                
+                st.markdown("#### 🎯 Performance Highlights")
                 
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    # Sentiment trends over time
-                    daily_sentiment = filtered_df.groupby(['date', 'vader_sentiment']).size().reset_index(name='count')
-                    
-                    fig_time_sentiment = px.line(
-                        daily_sentiment,
-                        x='date',
-                        y='count',
-                        color='vader_sentiment',
-                        title="Daily Sentiment Trends",
-                        color_discrete_map=colors
-                    )
-                    fig_time_sentiment.update_layout(
-                        xaxis_title="Date",
-                        yaxis_title="Number of Comments"
-                    )
-                    st.plotly_chart(fig_time_sentiment, use_container_width=True)
+                    st.markdown(f"""
+                    **🏆 Best Performer:**
+                    - **Video:** {best_video['title'][:40]}...
+                    - **Quality:** {best_video['Quality Score']:.1f}/5
+                    - **Comments:** {best_video['Comments']:,}
+                    """)
                 
                 with col2:
-                    # Quality trends over time
-                    daily_quality = filtered_df.groupby('date')['quality_score'].mean().reset_index()
-                    
-                    fig_time_quality = px.line(
-                        daily_quality,
-                        x='date',
-                        y='quality_score',
-                        title="Daily Quality Score Trends",
-                        markers=True
-                    )
-                    fig_time_quality.update_layout(
-                        xaxis_title="Date",
-                        yaxis_title="Average Quality Score"
-                    )
-                    st.plotly_chart(fig_time_quality, use_container_width=True)
-                
-                # Hourly patterns
-                st.markdown("#### ⏰ Hourly Activity Patterns")
-                
-                hourly_stats = filtered_df.groupby('hour').agg({
-                    'quality_score': 'mean',
-                    'vader_score': 'mean',
-                    'textOriginal_cleaned': 'count'
-                }).reset_index()
-                hourly_stats.columns = ['Hour', 'Avg Quality', 'Avg Sentiment', 'Comment Count']
-                
-                fig_hourly = make_subplots(
-                    rows=2, cols=2,
-                    subplot_titles=('Comment Volume by Hour', 'Quality Score by Hour', 
-                                  'Sentiment Score by Hour', 'Day of Week Distribution'),
-                    specs=[[{"secondary_y": False}, {"secondary_y": False}],
-                           [{"secondary_y": False}, {"secondary_y": False}]]
-                )
-                
-                # Comment volume by hour
-                fig_hourly.add_trace(
-                    go.Bar(x=hourly_stats['Hour'], y=hourly_stats['Comment Count'], 
-                          name='Comments', marker_color='lightblue'),
-                    row=1, col=1
-                )
-                
-                # Quality by hour
-                fig_hourly.add_trace(
-                    go.Scatter(x=hourly_stats['Hour'], y=hourly_stats['Avg Quality'], 
-                              mode='lines+markers', name='Quality', line_color='red'),
-                    row=1, col=2
-                )
-                
-                # Sentiment by hour
-                fig_hourly.add_trace(
-                    go.Scatter(x=hourly_stats['Hour'], y=hourly_stats['Avg Sentiment'], 
-                              mode='lines+markers', name='Sentiment', line_color='green'),
-                    row=2, col=1
-                )
-                
-                # Day of week distribution
-                dow_counts = filtered_df['day_of_week'].value_counts()
-                fig_hourly.add_trace(
-                    go.Bar(x=dow_counts.index, y=dow_counts.values, 
-                          name='Day Distribution', marker_color='orange'),
-                    row=2, col=2
-                )
-                
-                fig_hourly.update_layout(height=600, showlegend=False)
-                st.plotly_chart(fig_hourly, use_container_width=True)
-                
-                # Peak activity insights
-                st.markdown("#### 🔥 Peak Activity Insights")
-                
-                peak_hour = hourly_stats.loc[hourly_stats['Comment Count'].idxmax(), 'Hour']
-                peak_quality_hour = hourly_stats.loc[hourly_stats['Avg Quality'].idxmax(), 'Hour']
-                peak_day = dow_counts.index[0]
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.info(f"**Peak Activity Hour:** {peak_hour}:00")
-                
-                with col2:
-                    st.success(f"**Best Quality Hour:** {peak_quality_hour}:00")
-                
-                with col3:
-                    st.warning(f"**Most Active Day:** {peak_day}")
-                
-            except Exception as e:
-                st.error(f"Error creating temporal analysis: {e}")
+                    st.markdown(f"""
+                    **📈 Improvement Opportunity:**
+                    - **Video:** {worst_video['title'][:40]}...
+                    - **Quality:** {worst_video['Quality Score']:.1f}/5
+                    - **Comments:** {worst_video['Comments']:,}
+                    """)
         else:
-            st.info("Timestamp information not available for temporal analysis.")
-    
-    # Advanced Analytics Section
-    st.markdown("---")
-    st.markdown("## 🔬 Advanced Analytics")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Correlation matrix
-        st.markdown("### 📈 Correlation Analysis")
-        
-        numeric_cols = ['quality_score', 'vader_score']
-        if 'likeCount' in filtered_df.columns:
-            numeric_cols.append('likeCount')
-        
-        if len(numeric_cols) >= 2:
-            corr_matrix = filtered_df[numeric_cols].corr()
-            
-            fig_corr = px.imshow(
-                corr_matrix,
-                text_auto=True,
-                aspect="auto",
-                title="Correlation Matrix",
-                color_continuous_scale='RdBu'
-            )
-            st.plotly_chart(fig_corr, use_container_width=True)
-    
-    with col2:
-        # Statistical summary
-        st.markdown("### 📊 Statistical Summary")
-        
-        summary_stats = filtered_df[['quality_score', 'vader_score']].describe()
-        st.dataframe(summary_stats.round(3), use_container_width=True)
-        
-        # Additional insights
-        st.markdown("#### 💡 Key Insights")
-        
-        insights = []
-        
-        if avg_quality > 3.5:
-            insights.append("🌟 High average quality score indicates excellent content engagement")
-        elif avg_quality < 2.5:
-            insights.append("📈 Quality score suggests room for improvement in content strategy")
-        
-        if spam_rate < 10:
-            insights.append("🛡️ Low spam rate indicates healthy community management")
-        elif spam_rate > 20:
-            insights.append("⚠️ High spam rate may require enhanced moderation")
-        
-        if positive_rate > 70:
-            insights.append("😊 Highly positive audience sentiment - great content reception")
-        
-        for insight in insights:
-            st.success(insight)
+            st.markdown("""
+            <div style="text-align: center; padding: 3rem; background: linear-gradient(135deg, #f8f9fa, #e9ecef); border-radius: 20px; margin: 2rem 0;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">📹</div>
+                <h3 style="color: #6c757d; margin-bottom: 1rem;">Video Analysis Not Available</h3>
+                <p style="color: #6c757d;">Video title information is required for video performance analysis. Please ensure your dataset includes video metadata.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-def insights_page():
-    st.header("🤖 AI-Powered Insights & Assistant")
+
+
+
+def ai_assistant_page():
+    """Simple AI Assistant page for asking questions about your data"""
+    
+    # Enhanced Header
+    st.markdown("""
+    <div style="text-align: center; padding: 2rem; background: linear-gradient(135deg, #f8f9fa, #ffffff); border-radius: 20px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🤖</div>
+        <h1 style="margin: 0; color: #E31837; font-size: 2.5rem;">AI Assistant</h1>
+        <p style="margin: 1rem 0 0 0; color: #6c757d; font-size: 1.2rem;">Ask questions about your comment analysis data</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if not st.session_state.analysis_complete:
         st.warning("⚠️ Please upload and analyze data first!")
         return
     
     df = st.session_state.analysis_results
-    
-    # Initialize AI Assistant
     ai_assistant = AIAssistant(df)
     
-    # AI Executive Summary
-    st.subheader("📋 AI Executive Summary")
-    with st.container():
-        summary = ai_assistant.generate_ai_summary()
-        st.markdown(summary)
+    # AI Status
+    st.markdown("### 🔧 AI Status")
     
-    # Tabs for different AI features
-    tab1, tab2, tab3, tab4 = st.tabs(["🎯 Advanced Insights", "🤖 AI Assistant", "📊 Deep Analysis", "💡 Recommendations"])
+    col1, col2, col3 = st.columns(3)
     
-    with tab1:
-        st.subheader("🧠 AI-Generated Advanced Insights")
+    with col1:
+        api_key = os.getenv('GEMINI_API_KEY')
+        st.metric("API Key", "✅ Configured" if api_key else "❌ Missing")
+    
+    with col2:
+        st.metric("AI Status", "✅ Ready" if ai_assistant.is_gemini_enabled else "⚠️ Basic Mode")
+    
+    with col3:
+        model_name = "Gemini AI" if ai_assistant.is_gemini_enabled else "Rule-based"
+        st.metric("AI Model", model_name)
+    
+    if not api_key:
+        st.info("💡 **Tip:** Add your Gemini API key to `.env` file for enhanced AI responses: `GEMINI_API_KEY=your_key_here`")
+    
+    # Quick Data Overview
+    st.markdown("### 📊 Your Data Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    total_comments = len(df)
+    spam_rate = (df.get('is_spam', pd.Series()) == True).mean() * 100
+    avg_quality = df.get('quality_score', pd.Series()).mean()
+    positive_rate = (df.get('vader_sentiment', pd.Series()) == 'positive').mean() * 100
+    
+    with col1:
+        st.metric("Total Comments", f"{total_comments:,}")
+    with col2:
+        st.metric("Spam Rate", f"{spam_rate:.1f}%")
+    with col3:
+        st.metric("Quality Score", f"{avg_quality:.1f}/5")
+    with col4:
+        st.metric("Positive Sentiment", f"{positive_rate:.1f}%")
+    
+    # Chat Interface
+    st.markdown("### 💬 Ask Your AI Assistant")
+    
+    # Initialize chat history
+    if 'ai_chat_history' not in st.session_state:
+        st.session_state.ai_chat_history = []
+    
+    # Display chat history
+    if st.session_state.ai_chat_history:
+        st.markdown("#### 📝 Conversation History")
         
-        try:
-            # Generate advanced AI insights
-            ai_insights = ai_assistant.generate_advanced_insights()
+        for i, (question, answer) in enumerate(st.session_state.ai_chat_history):
+            # User message
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 1rem; border-radius: 15px 15px 5px 15px; margin: 10px 0; margin-left: 50px; border-left: 4px solid #6c757d;">
+                <strong>🙋 You:</strong> {question}
+            </div>
+            """, unsafe_allow_html=True)
             
-            if ai_insights:
-                for i, insight in enumerate(ai_insights, 1):
-                    st.markdown(f"""
-                    <div class="insight-box">
-                        <strong>{i}.</strong> {insight}
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No specific insights generated. Try with a larger dataset.")
-            
-        except Exception as e:
-            st.error(f"Error generating AI insights: {e}")
-    
-    with tab2:
-        st.subheader("💬 AI Assistant - Ask Me Anything!")
-        
-        # AI Status indicator
-        ai_status = ai_assistant.get_ai_status()
-        
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            if ai_status['gemini_enabled']:
-                st.success(f"🤖 Powered by Google Gemini ({ai_status['model']})")
-            else:
-                st.warning("⚠️ Using basic AI (Gemini not configured)")
-        
-        with col2:
-            if st.button("ℹ️ AI Setup", help="Setup instructions for Gemini AI"):
-                st.info(ai_assistant.get_setup_instructions())
-        
-        # Chat interface
-        if 'chat_history' not in st.session_state:
-            st.session_state.chat_history = []
-        
-        # Enhanced Chat Container
+            # AI response
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #E31837, #ff4757); color: white; padding: 1rem; border-radius: 15px 15px 15px 5px; margin: 10px 0; margin-right: 50px;">
+                <strong>🤖 AI:</strong> {answer}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
         st.markdown("""
-        <div style="background: linear-gradient(135deg, #f8f9fa, #ffffff); padding: 2rem; border-radius: 20px; margin: 1rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-            <h3 style="margin: 0 0 1rem 0; color: #E31837; text-align: center;">💬 Conversation History</h3>
+        <div style="background: linear-gradient(135deg, #E31837, #ff4757); color: white; padding: 2rem; border-radius: 20px; margin: 2rem 0; text-align: center; box-shadow: 0 8px 30px rgba(227, 24, 55, 0.3);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🤖</div>
+            <h3 style="margin: 0 0 1rem 0;">Welcome! I'm your AI Assistant</h3>
+            <p style="margin: 0; opacity: 0.9; font-size: 1.1rem;">I can analyze your comment data and answer questions about spam rates, sentiment, engagement patterns, and provide recommendations. What would you like to know?</p>
         </div>
         """, unsafe_allow_html=True)
+    
+    # Quick Action Buttons
+    st.markdown("#### ⚡ Quick Questions")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("📊 Data Summary", use_container_width=True):
+            question = "Give me a summary of my comment data"
+            with st.spinner("🤖 Analyzing..."):
+                answer = ai_assistant.answer_question(question)
+                st.session_state.ai_chat_history.append((question, answer))
+                st.rerun()
+    
+    with col2:
+        if st.button("🛡️ Spam Analysis", use_container_width=True):
+            question = "What's my spam rate and how can I improve it?"
+            with st.spinner("🤖 Analyzing..."):
+                answer = ai_assistant.answer_question(question)
+                st.session_state.ai_chat_history.append((question, answer))
+                st.rerun()
+    
+    with col3:
+        if st.button("😊 Sentiment Check", use_container_width=True):
+            question = "How is my audience sentiment?"
+            with st.spinner("🤖 Analyzing..."):
+                answer = ai_assistant.answer_question(question)
+                st.session_state.ai_chat_history.append((question, answer))
+                st.rerun()
+    
+    with col4:
+        if st.button("💡 Get Recommendations", use_container_width=True):
+            question = "What are your top recommendations for improving my content?"
+            with st.spinner("🤖 Analyzing..."):
+                answer = ai_assistant.answer_question(question)
+                st.session_state.ai_chat_history.append((question, answer))
+                st.rerun()
+    
+    # Custom Question Input
+    st.markdown("#### 💭 Ask Your Own Question")
+    
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        user_question = st.text_input(
+            "Type your question:",
+            placeholder="e.g., What trends do you see in my comments? How can I reduce spam?",
+            key="custom_ai_question"
+        )
+    
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        ask_button = st.button("🚀 Ask AI", type="primary", use_container_width=True)
+    
+    # Response mode selection
+    response_mode = st.radio(
+        "Response Style:",
+        ["🚀 Quick & Concise", "📝 Detailed Analysis"],
+        horizontal=True,
+        help="Choose between short answers or detailed explanations"
+    )
+    
+    # Process custom question
+    if ask_button and user_question:
+        with st.spinner("🤖 AI is thinking..."):
+            try:
+                if response_mode == "🚀 Quick & Concise":
+                    answer = ai_assistant.get_short_answer(user_question)
+                else:
+                    answer = ai_assistant.answer_question(user_question)
+                
+                st.session_state.ai_chat_history.append((user_question, answer))
+                st.rerun()
+            except Exception as e:
+                st.error(f"AI Assistant error: {e}")
+    
+    # Suggested Questions
+    with st.expander("💡 Need inspiration? Try these questions:", expanded=False):
+        suggested_questions = [
+            "What's my overall comment quality?",
+            "Which engagement type is most common?",
+            "How can I improve my content strategy?",
+            "What are the main topics in my comments?",
+            "Are there any concerning patterns in my data?",
+            "What's working well in my content?",
+            "How does my performance compare to benchmarks?",
+            "What should I focus on next?"
+        ]
         
-        chat_container = st.container()
-        
-        with chat_container:
-            # Display chat history with enhanced styling
-            if st.session_state.chat_history:
-                for i, (question, answer) in enumerate(st.session_state.chat_history):
-                    # User message with enhanced styling
-                    st.markdown(f"""
-                    <div class="user-message-enhanced">
-                        <strong style="color: #495057;">You:</strong> {question}
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # AI response with enhanced styling
-                    st.markdown(f"""
-                    <div class="ai-message-enhanced">
-                        <strong>AI Assistant:</strong> {answer}
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div style="background: linear-gradient(135deg, #E31837, #ff4757); color: white; padding: 2rem; border-radius: 20px; margin: 2rem 0; text-align: center; box-shadow: 0 8px 30px rgba(227, 24, 55, 0.3);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🤖</div>
-                    <h3 style="margin: 0 0 1rem 0;">Welcome to Your AI Assistant!</h3>
-                    <p style="margin: 0; opacity: 0.9; font-size: 1.1rem;">I can analyze your comment data and provide insights about spam rates, sentiment, engagement patterns, and strategic recommendations. What would you like to explore?</p>
-                </div>
-                """, unsafe_allow_html=True)
-        
+        cols = st.columns(2)
+        for i, question in enumerate(suggested_questions):
+            col = cols[i % 2]
+            if col.button(f"💭 {question}", key=f"suggested_q_{i}", use_container_width=True):
+                with st.spinner("🤖 AI is thinking..."):
+                    try:
+                        if response_mode == "🚀 Quick & Concise":
+                            answer = ai_assistant.get_short_answer(question)
+                        else:
+                            answer = ai_assistant.answer_question(question)
+                        
+                        st.session_state.ai_chat_history.append((question, answer))
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"AI Assistant error: {e}")
+    
+    # Chat Management
+    if st.session_state.ai_chat_history:
         st.markdown("---")
-        
-        # Enhanced Quick Action Buttons
-        st.markdown("""
-        <div style="text-align: center; margin: 2rem 0;">
-            <h3 style="color: #E31837; margin-bottom: 1rem;">⚡ Quick AI Insights</h3>
-            <p style="color: #6c757d; margin-bottom: 2rem;">Get instant analysis with one click</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1.5rem; border-radius: 16px; border: 2px solid #E31837; margin-bottom: 1rem; text-align: center; transition: all 0.3s ease;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📊</div>
-                <h4 style="margin: 0; color: #E31837;">Overall Summary</h4>
-                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">Complete analysis overview</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Get Summary", key="summary_btn", use_container_width=True):
-                with st.spinner("🤖 Generating comprehensive summary..."):
-                    answer = ai_assistant.answer_question("Give me an overall summary of my comment analysis")
-                    st.session_state.chat_history.append(("Give me an overall summary", answer))
-                    st.rerun()
-        
-        with col2:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1.5rem; border-radius: 16px; border: 2px solid #28a745; margin-bottom: 1rem; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🎯</div>
-                <h4 style="margin: 0; color: #28a745;">Top Recommendations</h4>
-                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">Actionable improvement tips</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Get Recommendations", key="rec_btn", use_container_width=True):
-                with st.spinner("🤖 Analyzing recommendations..."):
-                    answer = ai_assistant.answer_question("What are your top 3 recommendations for me?")
-                    st.session_state.chat_history.append(("Top recommendations", answer))
-                    st.rerun()
-        
-        col3, col4 = st.columns(2)
-        
-        with col3:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1.5rem; border-radius: 16px; border: 2px solid #17a2b8; margin-bottom: 1rem; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📈</div>
-                <h4 style="margin: 0; color: #17a2b8;">Performance Analysis</h4>
-                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">Content performance insights</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Analyze Performance", key="perf_btn", use_container_width=True):
-                with st.spinner("🤖 Analyzing performance..."):
-                    answer = ai_assistant.answer_question("How is my content performing based on the comments?")
-                    st.session_state.chat_history.append(("Performance analysis", answer))
-                    st.rerun()
-        
-        with col4:
-            st.markdown("""
-            <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); padding: 1.5rem; border-radius: 16px; border: 2px solid #6f42c1; margin-bottom: 1rem; text-align: center;">
-                <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔮</div>
-                <h4 style="margin: 0; color: #6f42c1;">Future Strategy</h4>
-                <p style="margin: 0.5rem 0 0 0; color: #6c757d; font-size: 0.9rem;">Strategic recommendations</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Get Strategy", key="strategy_btn", use_container_width=True):
-                with st.spinner("🤖 Strategizing..."):
-                    answer = ai_assistant.answer_question("What should my future content strategy be?")
-                    st.session_state.chat_history.append(("Future strategy", answer))
-                    st.rerun()
-        
-        st.markdown("---")
-        
-        # Enhanced Question Input Section
-        st.markdown("""
-        <div style="background: linear-gradient(135deg, #f8f9fa, #ffffff); padding: 2rem; border-radius: 20px; margin: 2rem 0; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
-            <h3 style="margin: 0 0 1rem 0; color: #E31837; text-align: center;">💭 Ask Your AI Assistant</h3>
-            <p style="text-align: center; color: #6c757d; margin-bottom: 1.5rem;">Type any question about your comment data and get intelligent insights</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2 = st.columns([4, 1])
-        
-        with col1:
-            user_question = st.text_input(
-                "Your Question:",
-                placeholder="e.g., What's my spam rate? How can I improve engagement? What are the trends?",
-                key="ai_question_input",
-                help="Ask anything about your comment data - spam rates, sentiment, engagement patterns, recommendations, etc."
-            )
-        
-        with col2:
-            st.markdown("<br>", unsafe_allow_html=True)  # Add spacing
-            ask_button = st.button("🚀 Ask AI", type="primary", use_container_width=True)
-        
-        # Enhanced Suggested Questions Section
-        with st.expander("💡 Need inspiration? Try these popular questions:", expanded=False):
-            st.markdown("""
-            <div style="text-align: center; margin-bottom: 1rem;">
-                <p style="color: #6c757d;">Click any question below to ask the AI assistant instantly</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            suggested_questions = [
-                ("🛡️", "What's my spam rate and how can I improve it?", "#dc3545"),
-                ("😊", "How is my audience sentiment overall?", "#28a745"),
-                ("🎯", "What type of engagement do I get most?", "#17a2b8"),
-                ("📊", "What are my content performance insights?", "#6f42c1"),
-                ("💡", "Give me recommendations to improve engagement", "#E31837"),
-                ("📈", "What trends do you see in my comments?", "#fd7e14"),
-                ("⭐", "How does my comment quality score look?", "#ffc107"),
-                ("🎥", "What should I focus on for my next video?", "#20c997"),
-                ("🏆", "Which videos perform best based on comments?", "#6610f2"),
-                ("🔧", "How can I reduce spam in my comments?", "#e83e8c"),
-                ("⏰", "What time should I post for better engagement?", "#0dcaf0"),
-                ("❓", "Are my viewers asking for specific content?", "#198754")
-            ]
-            
-            cols = st.columns(2)
-            for i, (emoji, question, color) in enumerate(suggested_questions):
-                col = cols[i % 2]
-                
-                # Create styled button using markdown and button
-                col.markdown(f"""
-                <div style="background: linear-gradient(135deg, #ffffff, #f8f9fa); border: 2px solid {color}; border-radius: 12px; padding: 0.5rem; margin-bottom: 0.5rem; text-align: center;">
-                    <span style="font-size: 1.2rem;">{emoji}</span>
-                    <div style="font-size: 0.9rem; color: {color}; font-weight: 500; margin-top: 0.25rem;">{question[:30]}...</div>
-                </div>
-                """, unsafe_allow_html=True)
-                
-                if col.button(f"Ask: {question}", key=f"suggested_{i}", use_container_width=True):
-                    user_question = question
-                    ask_button = True
-        
-        # Process question
-        if ask_button and user_question:
-            with st.spinner("🤖 AI is analyzing your data..."):
-                try:
-                    answer = ai_assistant.answer_question(user_question)
-                    st.session_state.chat_history.append((user_question, answer))
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"AI Assistant error: {e}")
-        
-        # Enhanced Chat Management
-        st.markdown("---")
-        st.markdown("""
-        <div style="text-align: center; margin: 2rem 0 1rem 0;">
-            <h4 style="color: #6c757d; margin: 0;">Chat Management</h4>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3 = st.columns([1, 1, 1])
-        
-        with col1:
-            if st.button("🗑️ Clear Chat", use_container_width=True, help="Clear all chat history"):
-                st.session_state.chat_history = []
+            if st.button("🗑️ Clear Chat History", use_container_width=True):
+                st.session_state.ai_chat_history = []
                 st.success("Chat history cleared!")
                 st.rerun()
         
         with col2:
-            if st.session_state.chat_history:
-                chat_export = "\n\n".join([f"Q: {q}\nA: {a}" for q, a in st.session_state.chat_history])
-                st.download_button(
-                    "📋 Export Chat",
-                    chat_export,
-                    file_name=f"ai_chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-                    mime="text/plain",
-                    use_container_width=True,
-                    help="Download your chat history as a text file"
-                )
-            else:
-                st.button("📋 Export Chat", disabled=True, use_container_width=True, help="No chat history to export")
-        
-        with col3:
-            if st.button("🔄 New Session", use_container_width=True, help="Start a fresh conversation"):
-                st.session_state.chat_history = []
-                st.success("New chat session started!")
-                st.rerun()
-    
-    with tab3:
-        st.subheader("📊 Deep Analysis")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**🎯 Top Performing Content Themes**")
-            
-            # Extract topics from genuine comments
-            try:
-                from src.analysis import CommentAnalyzer
-                analyzer = CommentAnalyzer()
-                
-                genuine_comments = df[df['relevance'] == 'genuine']['textOriginal_cleaned'].dropna().tolist()
-                
-                if genuine_comments:
-                    topics = analyzer.extract_topics(genuine_comments, n_topics=10)
-                    
-                    for i, topic in enumerate(topics, 1):
-                        st.write(f"{i}. **{topic}**")
-                else:
-                    st.write("No genuine comments found for topic extraction")
-                    
-            except Exception as e:
-                st.warning(f"Could not extract topics: {e}")
-            
-            # Engagement quality breakdown
-            st.write("**📈 Engagement Quality Breakdown**")
-            if 'quality_score' in df.columns:
-                quality_ranges = {
-                    'Excellent (4-5)': (df['quality_score'] >= 4).sum(),
-                    'Good (3-4)': ((df['quality_score'] >= 3) & (df['quality_score'] < 4)).sum(),
-                    'Average (2-3)': ((df['quality_score'] >= 2) & (df['quality_score'] < 3)).sum(),
-                    'Poor (0-2)': (df['quality_score'] < 2).sum()
-                }
-                
-                for range_name, count in quality_ranges.items():
-                    percentage = (count / len(df)) * 100
-                    st.write(f"• {range_name}: {count:,} comments ({percentage:.1f}%)")
-        
-        with col2:
-            st.write("**🎭 Sentiment Deep Dive**")
-            
-            if 'vader_sentiment' in df.columns:
-                sentiment_stats = df.groupby('vader_sentiment').agg({
-                    'quality_score': 'mean',
-                    'textOriginal_cleaned': 'count'
-                }).round(2)
-                
-                sentiment_stats.columns = ['Avg Quality', 'Count']
-                st.dataframe(sentiment_stats)
-            
-            # Time-based analysis if available
-            if 'publishedAt' in df.columns:
-                st.write("**⏰ Temporal Patterns**")
-                try:
-                    df['hour'] = pd.to_datetime(df['publishedAt']).dt.hour
-                    hourly_engagement = df.groupby('hour')['quality_score'].mean().sort_values(ascending=False)
-                    
-                    st.write("**Best engagement hours:**")
-                    for hour, score in hourly_engagement.head(3).items():
-                        st.write(f"• {hour}:00 - Quality Score: {score:.2f}")
-                        
-                except Exception as e:
-                    st.write("Could not analyze temporal patterns")
-    
-    with tab4:
-        st.subheader("💡 AI Recommendations")
-        
-        # Generate personalized recommendations
-        recommendations = ai_assistant._generate_recommendations()
-        
-        if recommendations:
-            st.write("**🎯 Personalized Action Items:**")
-            for i, rec in enumerate(recommendations, 1):
-                st.markdown(f"""
-                <div style="background-color: #e8f4fd; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #1f77b4; margin: 1rem 0;">
-                    <strong>{i}.</strong> {rec}
-                </div>
-                """, unsafe_allow_html=True)
-        
-        # Performance benchmarks
-        st.write("**📊 Performance Benchmarks:**")
-        
-        benchmarks = {
-            "Spam Rate": {"current": (df['is_spam'] == True).mean() * 100, "good": "<5%", "excellent": "<2%"},
-            "Quality Score": {"current": df['quality_score'].mean(), "good": ">3.0", "excellent": ">4.0"},
-            "Positive Sentiment": {"current": (df['vader_sentiment'] == 'positive').mean() * 100, "good": ">50%", "excellent": ">70%"},
-            "Genuine Engagement": {"current": (df['relevance'] == 'genuine').mean() * 100, "good": ">60%", "excellent": ">80%"}
-        }
-        
-        for metric, data in benchmarks.items():
-            current = data["current"]
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(metric, f"{current:.1f}{'%' if 'Rate' in metric or 'Sentiment' in metric or 'Engagement' in metric else ''}")
-            with col2:
-                st.write(f"Good: {data['good']}")
-            with col3:
-                st.write(f"Excellent: {data['excellent']}")
-            with col4:
-                # Status indicator
-                if metric == "Spam Rate":
-                    status = "🟢 Excellent" if current < 2 else "🟡 Good" if current < 5 else "🔴 Needs Work"
-                elif metric == "Quality Score":
-                    status = "🟢 Excellent" if current > 4 else "🟡 Good" if current > 3 else "🔴 Needs Work"
-                else:
-                    status = "🟢 Excellent" if current > 70 else "🟡 Good" if current > 50 else "🔴 Needs Work"
-                st.write(status)
+            # Export chat
+            chat_export = "\n\n".join([f"Q: {q}\nA: {a}" for q, a in st.session_state.ai_chat_history])
+            st.download_button(
+                "📋 Export Chat History",
+                chat_export,
+                file_name=f"ai_chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
 
 def export_page():
     st.header("📋 Data Export")
