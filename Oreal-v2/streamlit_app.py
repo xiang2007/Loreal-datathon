@@ -33,6 +33,7 @@ try:
     from src.data_processing import DataProcessor
     from src.analysis import CommentAnalyzer
     from src.dashboard import CommentDashboard
+    from src.ai_assistant import AIAssistant
 except ImportError as e:
     st.error(f"Error importing modules: {e}")
     st.stop()
@@ -75,7 +76,7 @@ def main():
     st.markdown('<h1 class="main-header">💄 L\'Oréal YouTube Comment Quality Analysis</h1>', unsafe_allow_html=True)
     
     # Sidebar
-    st.sidebar.title("📊 Analysis Dashboard")
+    st.sidebar.title("🤖 AI-Powered Analysis Dashboard")
     
     # Initialize session state
     if 'analysis_complete' not in st.session_state:
@@ -88,16 +89,41 @@ def main():
     # Navigation
     page = st.sidebar.selectbox(
         "Choose a page:",
-        ["📤 Upload Data", "🔍 Analysis Results", "📈 Visualizations", "💡 Insights", "📋 Data Export"]
+        ["📤 Upload Data", "🔍 Analysis Results", "📈 Visualizations", "🤖 AI Insights & Assistant", "📋 Data Export"]
     )
     
+    # AI Quick Summary in Sidebar
+    if st.session_state.analysis_complete and st.session_state.analysis_results is not None:
+        st.sidebar.markdown("---")
+        st.sidebar.subheader("🤖 AI Quick Summary")
+        
+        df = st.session_state.analysis_results
+        ai_assistant = AIAssistant(df)
+        
+        # Quick metrics
+        total_comments = len(df)
+        spam_rate = (df.get('is_spam', pd.Series()) == True).mean() * 100
+        avg_quality = df.get('quality_score', pd.Series()).mean()
+        
+        st.sidebar.metric("Total Comments", f"{total_comments:,}")
+        st.sidebar.metric("Spam Rate", f"{spam_rate:.1f}%", 
+                         delta="Good" if spam_rate < 10 else "High")
+        st.sidebar.metric("Quality Score", f"{avg_quality:.2f}/5",
+                         delta="Excellent" if avg_quality > 3.5 else "Good" if avg_quality > 2.5 else "Needs Work")
+        
+        # Quick AI insight
+        if st.sidebar.button("💡 Get Quick AI Insight"):
+            insight = ai_assistant._get_key_insight()
+            st.sidebar.info(f"💡 {insight}")
+    
+    # Main page routing
     if page == "📤 Upload Data":
         upload_page()
     elif page == "🔍 Analysis Results":
         analysis_page()
     elif page == "📈 Visualizations":
         visualization_page()
-    elif page == "💡 Insights":
+    elif page == "🤖 AI Insights & Assistant":
         insights_page()
     elif page == "📋 Data Export":
         export_page()
@@ -1008,7 +1034,7 @@ def visualization_page():
         st.dataframe(video_stats.head(10), use_container_width=True)
 
 def insights_page():
-    st.header("💡 AI-Generated Insights")
+    st.header("🤖 AI-Powered Insights & Assistant")
     
     if not st.session_state.analysis_complete:
         st.warning("⚠️ Please upload and analyze data first!")
@@ -1016,77 +1042,210 @@ def insights_page():
     
     df = st.session_state.analysis_results
     
-    # Generate insights using the dashboard class
-    try:
-        dashboard = CommentDashboard(df)
-        insights = dashboard.generate_insights()
-        
-        st.subheader("🎯 Key Insights")
-        
-        for i, insight in enumerate(insights, 1):
-            st.markdown(f"""
-            <div class="insight-box">
-                <strong>{i}.</strong> {insight}
-            </div>
-            """, unsafe_allow_html=True)
-        
-    except Exception as e:
-        st.error(f"Error generating insights: {e}")
+    # Initialize AI Assistant
+    ai_assistant = AIAssistant(df)
     
-    # Additional custom insights
-    st.subheader("📊 Detailed Analysis")
+    # AI Executive Summary
+    st.subheader("📋 AI Executive Summary")
+    with st.container():
+        summary = ai_assistant.generate_ai_summary()
+        st.markdown(summary)
     
-    col1, col2 = st.columns(2)
+    # Tabs for different AI features
+    tab1, tab2, tab3, tab4 = st.tabs(["🎯 Advanced Insights", "🤖 AI Assistant", "📊 Deep Analysis", "💡 Recommendations"])
     
-    with col1:
-        st.write("**Top Performing Content Themes**")
+    with tab1:
+        st.subheader("🧠 AI-Generated Advanced Insights")
         
-        # Extract topics from genuine comments
         try:
-            from analysis import CommentAnalyzer
-            analyzer = CommentAnalyzer()
+            # Generate advanced AI insights
+            ai_insights = ai_assistant.generate_advanced_insights()
             
-            genuine_comments = df[df['relevance'] == 'genuine']['textOriginal_cleaned'].dropna().tolist()
-            
-            if genuine_comments:
-                topics = analyzer.extract_topics(genuine_comments, n_topics=10)
-                
-                for i, topic in enumerate(topics, 1):
-                    st.write(f"{i}. {topic}")
+            if ai_insights:
+                for i, insight in enumerate(ai_insights, 1):
+                    st.markdown(f"""
+                    <div class="insight-box">
+                        <strong>{i}.</strong> {insight}
+                    </div>
+                    """, unsafe_allow_html=True)
             else:
-                st.write("No genuine comments found for topic extraction")
-                
+                st.info("No specific insights generated. Try with a larger dataset.")
+            
         except Exception as e:
-            st.warning(f"Could not extract topics: {e}")
+            st.error(f"Error generating AI insights: {e}")
     
-    with col2:
-        st.write("**Engagement Recommendations**")
+    with tab2:
+        st.subheader("💬 AI Assistant - Ask Me Anything!")
         
-        # Calculate engagement metrics
-        question_rate = (df['engagement_type'] == 'question').mean() * 100
-        technique_rate = (df['engagement_type'] == 'technique_request').mean() * 100
+        # Chat interface
+        if 'chat_history' not in st.session_state:
+            st.session_state.chat_history = []
         
-        recommendations = []
+        # Display chat history
+        for i, (question, answer) in enumerate(st.session_state.chat_history):
+            with st.container():
+                st.markdown(f"**🙋 You:** {question}")
+                st.markdown(f"**🤖 AI Assistant:** {answer}")
+                st.markdown("---")
         
-        if question_rate > 20:
-            recommendations.append("High question rate - consider FAQ content")
+        # Question input
+        col1, col2 = st.columns([4, 1])
         
-        if technique_rate > 15:
-            recommendations.append("Strong demand for tutorials")
+        with col1:
+            user_question = st.text_input(
+                "Ask me about your comment analysis:",
+                placeholder="e.g., What's my spam rate? How can I improve engagement? What are the trends?",
+                key="ai_question_input"
+            )
         
-        spam_rate = (df['is_spam'] == True).mean() * 100
-        if spam_rate > 20:
-            recommendations.append("Implement stricter comment moderation")
+        with col2:
+            ask_button = st.button("Ask AI", type="primary")
         
-        positive_rate = (df['vader_sentiment'] == 'positive').mean() * 100
-        if positive_rate > 60:
-            recommendations.append("Leverage positive sentiment for UGC campaigns")
+        # Suggested questions
+        st.write("**💡 Suggested Questions:**")
+        suggested_questions = [
+            "What's my spam rate and how can I improve it?",
+            "How is my audience sentiment?",
+            "What type of engagement do I get most?",
+            "What are my content performance insights?",
+            "Give me recommendations to improve engagement",
+            "What trends do you see in my comments?",
+            "How does my comment quality score look?",
+            "What should I focus on for my next video?"
+        ]
         
-        if not recommendations:
-            recommendations.append("Community engagement is well-balanced")
+        cols = st.columns(2)
+        for i, question in enumerate(suggested_questions):
+            col = cols[i % 2]
+            if col.button(f"💭 {question}", key=f"suggested_{i}"):
+                user_question = question
+                ask_button = True
         
-        for rec in recommendations:
-            st.write(f"• {rec}")
+        # Process question
+        if ask_button and user_question:
+            with st.spinner("🤖 AI is thinking..."):
+                try:
+                    answer = ai_assistant.answer_question(user_question)
+                    st.session_state.chat_history.append((user_question, answer))
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"AI Assistant error: {e}")
+        
+        # Clear chat button
+        if st.button("🗑️ Clear Chat History"):
+            st.session_state.chat_history = []
+            st.rerun()
+    
+    with tab3:
+        st.subheader("📊 Deep Analysis")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.write("**🎯 Top Performing Content Themes**")
+            
+            # Extract topics from genuine comments
+            try:
+                from src.analysis import CommentAnalyzer
+                analyzer = CommentAnalyzer()
+                
+                genuine_comments = df[df['relevance'] == 'genuine']['textOriginal_cleaned'].dropna().tolist()
+                
+                if genuine_comments:
+                    topics = analyzer.extract_topics(genuine_comments, n_topics=10)
+                    
+                    for i, topic in enumerate(topics, 1):
+                        st.write(f"{i}. **{topic}**")
+                else:
+                    st.write("No genuine comments found for topic extraction")
+                    
+            except Exception as e:
+                st.warning(f"Could not extract topics: {e}")
+            
+            # Engagement quality breakdown
+            st.write("**📈 Engagement Quality Breakdown**")
+            if 'quality_score' in df.columns:
+                quality_ranges = {
+                    'Excellent (4-5)': (df['quality_score'] >= 4).sum(),
+                    'Good (3-4)': ((df['quality_score'] >= 3) & (df['quality_score'] < 4)).sum(),
+                    'Average (2-3)': ((df['quality_score'] >= 2) & (df['quality_score'] < 3)).sum(),
+                    'Poor (0-2)': (df['quality_score'] < 2).sum()
+                }
+                
+                for range_name, count in quality_ranges.items():
+                    percentage = (count / len(df)) * 100
+                    st.write(f"• {range_name}: {count:,} comments ({percentage:.1f}%)")
+        
+        with col2:
+            st.write("**🎭 Sentiment Deep Dive**")
+            
+            if 'vader_sentiment' in df.columns:
+                sentiment_stats = df.groupby('vader_sentiment').agg({
+                    'quality_score': 'mean',
+                    'textOriginal_cleaned': 'count'
+                }).round(2)
+                
+                sentiment_stats.columns = ['Avg Quality', 'Count']
+                st.dataframe(sentiment_stats)
+            
+            # Time-based analysis if available
+            if 'publishedAt' in df.columns:
+                st.write("**⏰ Temporal Patterns**")
+                try:
+                    df['hour'] = pd.to_datetime(df['publishedAt']).dt.hour
+                    hourly_engagement = df.groupby('hour')['quality_score'].mean().sort_values(ascending=False)
+                    
+                    st.write("**Best engagement hours:**")
+                    for hour, score in hourly_engagement.head(3).items():
+                        st.write(f"• {hour}:00 - Quality Score: {score:.2f}")
+                        
+                except Exception as e:
+                    st.write("Could not analyze temporal patterns")
+    
+    with tab4:
+        st.subheader("💡 AI Recommendations")
+        
+        # Generate personalized recommendations
+        recommendations = ai_assistant._generate_recommendations()
+        
+        if recommendations:
+            st.write("**🎯 Personalized Action Items:**")
+            for i, rec in enumerate(recommendations, 1):
+                st.markdown(f"""
+                <div style="background-color: #e8f4fd; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #1f77b4; margin: 1rem 0;">
+                    <strong>{i}.</strong> {rec}
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Performance benchmarks
+        st.write("**📊 Performance Benchmarks:**")
+        
+        benchmarks = {
+            "Spam Rate": {"current": (df['is_spam'] == True).mean() * 100, "good": "<5%", "excellent": "<2%"},
+            "Quality Score": {"current": df['quality_score'].mean(), "good": ">3.0", "excellent": ">4.0"},
+            "Positive Sentiment": {"current": (df['vader_sentiment'] == 'positive').mean() * 100, "good": ">50%", "excellent": ">70%"},
+            "Genuine Engagement": {"current": (df['relevance'] == 'genuine').mean() * 100, "good": ">60%", "excellent": ">80%"}
+        }
+        
+        for metric, data in benchmarks.items():
+            current = data["current"]
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(metric, f"{current:.1f}{'%' if 'Rate' in metric or 'Sentiment' in metric or 'Engagement' in metric else ''}")
+            with col2:
+                st.write(f"Good: {data['good']}")
+            with col3:
+                st.write(f"Excellent: {data['excellent']}")
+            with col4:
+                # Status indicator
+                if metric == "Spam Rate":
+                    status = "🟢 Excellent" if current < 2 else "🟡 Good" if current < 5 else "🔴 Needs Work"
+                elif metric == "Quality Score":
+                    status = "🟢 Excellent" if current > 4 else "🟡 Good" if current > 3 else "🔴 Needs Work"
+                else:
+                    status = "🟢 Excellent" if current > 70 else "🟡 Good" if current > 50 else "🔴 Needs Work"
+                st.write(status)
 
 def export_page():
     st.header("📋 Data Export")
