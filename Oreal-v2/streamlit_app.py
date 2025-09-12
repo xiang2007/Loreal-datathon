@@ -1,6 +1,15 @@
 """
 Streamlit Web Application for L'Oréal YouTube Comment Quality Analysis
 """
+# Load environment variables first
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Environment variables loaded in Streamlit app")
+except ImportError:
+    print("⚠️ python-dotenv not available")
+    pass
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -68,8 +77,152 @@ st.markdown("""
         border-left: 4px solid #1f77b4;
         margin: 1rem 0;
     }
+    .chat-bubble {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #E31837, #ff4757);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(227, 24, 55, 0.3);
+        z-index: 1000;
+        transition: all 0.3s ease;
+    }
+    .chat-bubble:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(227, 24, 55, 0.4);
+    }
+    .chat-bubble-icon {
+        color: white;
+        font-size: 24px;
+    }
+    .chat-window {
+        position: fixed;
+        bottom: 90px;
+        right: 20px;
+        width: 350px;
+        height: 500px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        z-index: 1001;
+        display: none;
+        flex-direction: column;
+        border: 1px solid #e0e0e0;
+    }
+    .chat-header {
+        background: linear-gradient(135deg, #E31837, #ff4757);
+        color: white;
+        padding: 15px;
+        border-radius: 15px 15px 0 0;
+        font-weight: bold;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .chat-messages {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        max-height: 350px;
+    }
+    .user-message {
+        background: #f0f2f6;
+        padding: 10px;
+        border-radius: 15px 15px 5px 15px;
+        margin: 5px 0;
+        margin-left: 20px;
+    }
+    .ai-message {
+        background: linear-gradient(135deg, #E31837, #ff4757);
+        color: white;
+        padding: 10px;
+        border-radius: 15px 15px 15px 5px;
+        margin: 5px 0;
+        margin-right: 20px;
+    }
+    .chat-input-area {
+        padding: 15px;
+        border-top: 1px solid #e0e0e0;
+        border-radius: 0 0 15px 15px;
+    }
+    .quick-questions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-bottom: 10px;
+    }
+    .quick-question-btn {
+        background: #f0f2f6;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .quick-question-btn:hover {
+        background: #E31837;
+        color: white;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+def render_ai_chat_bubble():
+    """Render floating AI chat bubble"""
+    if st.session_state.analysis_complete and st.session_state.analysis_results is not None:
+        # Initialize chat state
+        if 'chat_open' not in st.session_state:
+            st.session_state.chat_open = False
+        if 'bubble_chat_history' not in st.session_state:
+            st.session_state.bubble_chat_history = []
+        
+        # Chat bubble HTML and JavaScript
+        chat_bubble_html = f"""
+        <div id="ai-chat-bubble" class="chat-bubble" onclick="toggleChat()">
+            <div class="chat-bubble-icon">🤖</div>
+        </div>
+        
+        <div id="chat-window" class="chat-window" style="display: {'block' if st.session_state.chat_open else 'none'};">
+            <div class="chat-header">
+                <span>🤖 AI Assistant</span>
+                <span onclick="toggleChat()" style="cursor: pointer; font-size: 18px;">×</span>
+            </div>
+            <div class="chat-messages" id="chat-messages">
+                <div class="ai-message">
+                    Hi! I'm your AI assistant. I can answer questions about your comment analysis data. Try asking me about spam rates, sentiment, engagement, or recommendations!
+                </div>
+            </div>
+            <div class="chat-input-area">
+                <div class="quick-questions">
+                    <button class="quick-question-btn" onclick="askQuestion('What is my spam rate?')">Spam Rate</button>
+                    <button class="quick-question-btn" onclick="askQuestion('How is my sentiment?')">Sentiment</button>
+                    <button class="quick-question-btn" onclick="askQuestion('Give me recommendations')">Tips</button>
+                </div>
+            </div>
+        </div>
+        
+        <script>
+        function toggleChat() {{
+            const chatWindow = document.getElementById('chat-window');
+            const isVisible = chatWindow.style.display === 'block';
+            chatWindow.style.display = isVisible ? 'none' : 'block';
+        }}
+        
+        function askQuestion(question) {{
+            // This would trigger Streamlit to process the question
+            const event = new CustomEvent('aiQuestion', {{ detail: question }});
+            document.dispatchEvent(event);
+        }}
+        </script>
+        """
+        
+        st.markdown(chat_bubble_html, unsafe_allow_html=True)
 
 def main():
     # Header
@@ -127,6 +280,9 @@ def main():
         insights_page()
     elif page == "📋 Data Export":
         export_page()
+    
+    # Render floating AI chat bubble
+    render_ai_chat_bubble()
 
 def check_system_resources():
     """Check system resources for large dataset processing"""
@@ -1077,53 +1233,131 @@ def insights_page():
     with tab2:
         st.subheader("💬 AI Assistant - Ask Me Anything!")
         
+        # AI Status indicator
+        ai_status = ai_assistant.get_ai_status()
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            if ai_status['gemini_enabled']:
+                st.success(f"🤖 Powered by Google Gemini ({ai_status['model']})")
+            else:
+                st.warning("⚠️ Using basic AI (Gemini not configured)")
+        
+        with col2:
+            if st.button("ℹ️ AI Setup", help="Setup instructions for Gemini AI"):
+                st.info(ai_assistant.get_setup_instructions())
+        
         # Chat interface
         if 'chat_history' not in st.session_state:
             st.session_state.chat_history = []
         
-        # Display chat history
-        for i, (question, answer) in enumerate(st.session_state.chat_history):
-            with st.container():
-                st.markdown(f"**🙋 You:** {question}")
-                st.markdown(f"**🤖 AI Assistant:** {answer}")
-                st.markdown("---")
+        # Create a chat container with better styling
+        chat_container = st.container()
         
-        # Question input
+        with chat_container:
+            # Display chat history with improved styling
+            if st.session_state.chat_history:
+                st.markdown("### 💬 Chat History")
+                for i, (question, answer) in enumerate(st.session_state.chat_history):
+                    # User message
+                    st.markdown(f"""
+                    <div style="background-color: #f0f2f6; padding: 15px; border-radius: 15px 15px 5px 15px; margin: 10px 0; margin-left: 50px;">
+                        <strong>🙋 You:</strong> {question}
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # AI response
+                    st.markdown(f"""
+                    <div style="background: linear-gradient(135deg, #E31837, #ff4757); color: white; padding: 15px; border-radius: 15px 15px 15px 5px; margin: 10px 0; margin-right: 50px;">
+                        <strong>🤖 AI Assistant:</strong> {answer}
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown("""
+                <div style="background: linear-gradient(135deg, #E31837, #ff4757); color: white; padding: 15px; border-radius: 15px; margin: 10px 0; text-align: center;">
+                    <strong>🤖 Welcome!</strong> I'm your AI assistant. I can analyze your comment data and answer questions about spam rates, sentiment, engagement patterns, and provide recommendations. What would you like to know?
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Quick action buttons
+        st.markdown("### ⚡ Quick Insights")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            if st.button("📊 Overall Summary", use_container_width=True):
+                with st.spinner("🤖 Generating summary..."):
+                    answer = ai_assistant.answer_question("Give me an overall summary of my comment analysis")
+                    st.session_state.chat_history.append(("Give me an overall summary", answer))
+                    st.rerun()
+        
+        with col2:
+            if st.button("🎯 Top Recommendations", use_container_width=True):
+                with st.spinner("🤖 Analyzing recommendations..."):
+                    answer = ai_assistant.answer_question("What are your top 3 recommendations for me?")
+                    st.session_state.chat_history.append(("Top recommendations", answer))
+                    st.rerun()
+        
+        with col3:
+            if st.button("📈 Performance Analysis", use_container_width=True):
+                with st.spinner("🤖 Analyzing performance..."):
+                    answer = ai_assistant.answer_question("How is my content performing based on the comments?")
+                    st.session_state.chat_history.append(("Performance analysis", answer))
+                    st.rerun()
+        
+        with col4:
+            if st.button("🔮 Future Strategy", use_container_width=True):
+                with st.spinner("🤖 Strategizing..."):
+                    answer = ai_assistant.answer_question("What should my future content strategy be?")
+                    st.session_state.chat_history.append(("Future strategy", answer))
+                    st.rerun()
+        
+        st.markdown("---")
+        
+        # Question input with better UX
+        st.markdown("### 💭 Ask Your Question")
+        
         col1, col2 = st.columns([4, 1])
         
         with col1:
             user_question = st.text_input(
-                "Ask me about your comment analysis:",
+                "Type your question here:",
                 placeholder="e.g., What's my spam rate? How can I improve engagement? What are the trends?",
-                key="ai_question_input"
+                key="ai_question_input",
+                label_visibility="collapsed"
             )
         
         with col2:
-            ask_button = st.button("Ask AI", type="primary")
+            ask_button = st.button("🚀 Ask AI", type="primary", use_container_width=True)
         
-        # Suggested questions
-        st.write("**💡 Suggested Questions:**")
-        suggested_questions = [
-            "What's my spam rate and how can I improve it?",
-            "How is my audience sentiment?",
-            "What type of engagement do I get most?",
-            "What are my content performance insights?",
-            "Give me recommendations to improve engagement",
-            "What trends do you see in my comments?",
-            "How does my comment quality score look?",
-            "What should I focus on for my next video?"
-        ]
-        
-        cols = st.columns(2)
-        for i, question in enumerate(suggested_questions):
-            col = cols[i % 2]
-            if col.button(f"💭 {question}", key=f"suggested_{i}"):
-                user_question = question
-                ask_button = True
+        # Suggested questions in expandable section
+        with st.expander("💡 Need inspiration? Try these questions:", expanded=False):
+            suggested_questions = [
+                "What's my spam rate and how can I improve it?",
+                "How is my audience sentiment overall?",
+                "What type of engagement do I get most?",
+                "What are my content performance insights?",
+                "Give me recommendations to improve engagement",
+                "What trends do you see in my comments?",
+                "How does my comment quality score look?",
+                "What should I focus on for my next video?",
+                "Which videos perform best based on comments?",
+                "How can I reduce spam in my comments?",
+                "What time should I post for better engagement?",
+                "Are my viewers asking for specific content?"
+            ]
+            
+            cols = st.columns(2)
+            for i, question in enumerate(suggested_questions):
+                col = cols[i % 2]
+                if col.button(f"💭 {question}", key=f"suggested_{i}", use_container_width=True):
+                    user_question = question
+                    ask_button = True
         
         # Process question
         if ask_button and user_question:
-            with st.spinner("🤖 AI is thinking..."):
+            with st.spinner("🤖 AI is analyzing your data..."):
                 try:
                     answer = ai_assistant.answer_question(user_question)
                     st.session_state.chat_history.append((user_question, answer))
@@ -1131,10 +1365,25 @@ def insights_page():
                 except Exception as e:
                     st.error(f"AI Assistant error: {e}")
         
-        # Clear chat button
-        if st.button("🗑️ Clear Chat History"):
-            st.session_state.chat_history = []
-            st.rerun()
+        # Chat management
+        col1, col2, col3 = st.columns([1, 1, 2])
+        with col1:
+            if st.button("🗑️ Clear Chat", use_container_width=True):
+                st.session_state.chat_history = []
+                st.rerun()
+        
+        with col2:
+            if st.button("📋 Export Chat", use_container_width=True):
+                if st.session_state.chat_history:
+                    chat_export = "\n\n".join([f"Q: {q}\nA: {a}" for q, a in st.session_state.chat_history])
+                    st.download_button(
+                        "💾 Download Chat History",
+                        chat_export,
+                        file_name=f"ai_chat_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                        mime="text/plain"
+                    )
+                else:
+                    st.info("No chat history to export")
     
     with tab3:
         st.subheader("📊 Deep Analysis")
