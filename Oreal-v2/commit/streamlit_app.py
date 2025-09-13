@@ -1828,7 +1828,8 @@ def visualization_page():
         
         # Beauty category filter
         if 'beauty_category' in df.columns:
-            category_options = ['All'] + sorted(list(df['beauty_category'].unique()))
+            # Convert all values to strings before sorting to avoid type comparison issues
+            category_options = ['All'] + sorted([str(x) for x in df['beauty_category'].unique() if pd.notna(x)])
             selected_category = st.selectbox("🏷️ Filter by Beauty Category", category_options)
         else:
             selected_category = 'All'
@@ -1851,7 +1852,8 @@ def visualization_page():
         if selected_engagement != 'All':
             filtered_df = filtered_df[filtered_df['engagement_type'] == selected_engagement]
         if selected_category != 'All' and 'beauty_category' in df.columns:
-            filtered_df = filtered_df[filtered_df['beauty_category'] == selected_category]
+            # Convert both sides to string for comparison since we converted the options to strings
+            filtered_df = filtered_df[filtered_df['beauty_category'].astype(str) == selected_category]
         if 'category_confidence' in df.columns:
             filtered_df = filtered_df[filtered_df['category_confidence'] >= min_confidence]
         filtered_df = filtered_df[
