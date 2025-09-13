@@ -2674,7 +2674,7 @@ def ai_assistant_page():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        api_key = st.secrets["api_key"]
+        api_key = st.secrets["api_keys"]["api_key"]
         st.metric("API Key", "✅ Configured" if api_key else "❌ Missing")
     
     with col2:
