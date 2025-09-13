@@ -84,9 +84,44 @@ st.markdown("""
         text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    /* Sidebar Styling */
+    /* Sidebar Styling - Force sidebar to stay visible */
     .css-1d391kg {
         background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    /* Force sidebar to stay expanded */
+    .css-1lcbmhc {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 0 16px 16px 0;
+        min-width: 300px !important;
+        width: 300px !important;
+    }
+    
+    /* Prevent sidebar collapse */
+    .css-1cypcdb {
+        min-width: 300px !important;
+        width: 300px !important;
+    }
+    
+    /* Hide sidebar collapse button */
+    .css-1rs6os {
+        display: none !important;
+    }
+    
+    /* Force sidebar visibility on all screen sizes */
+    @media (max-width: 768px) {
+        .css-1lcbmhc {
+            display: block !important;
+            position: relative !important;
+            transform: none !important;
+            min-width: 280px !important;
+            width: 280px !important;
+        }
+        
+        .css-1cypcdb {
+            min-width: 280px !important;
+            width: 280px !important;
+        }
     }
     
     /* Metric Cards */
@@ -374,10 +409,17 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     }
     
-    /* Sidebar Enhancements */
-    .css-1lcbmhc {
+    /* Additional Sidebar Classes */
+    .css-17eq0hr {
         background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 0 16px 16px 0;
+        min-width: 300px !important;
+        width: 300px !important;
+    }
+    
+    /* Streamlit sidebar container */
+    .css-1544g2n {
+        min-width: 300px !important;
+        width: 300px !important;
     }
     
     /* Loading Spinner */
@@ -410,6 +452,51 @@ st.markdown("""
         border-radius: 12px;
     }
 </style>
+
+<script>
+// Force sidebar to stay expanded
+document.addEventListener('DOMContentLoaded', function() {
+    // Function to keep sidebar expanded
+    function keepSidebarExpanded() {
+        const sidebar = document.querySelector('[data-testid="stSidebar"]');
+        const sidebarContent = document.querySelector('.css-1lcbmhc, .css-1cypcdb, .css-17eq0hr, .css-1544g2n');
+        
+        if (sidebar) {
+            sidebar.style.display = 'block';
+            sidebar.style.transform = 'translateX(0px)';
+            sidebar.style.minWidth = '300px';
+            sidebar.style.width = '300px';
+        }
+        
+        if (sidebarContent) {
+            sidebarContent.style.display = 'block';
+            sidebarContent.style.minWidth = '300px';
+            sidebarContent.style.width = '300px';
+        }
+        
+        // Hide collapse button if it exists
+        const collapseBtn = document.querySelector('[data-testid="collapsedControl"]');
+        if (collapseBtn) {
+            collapseBtn.style.display = 'none';
+        }
+    }
+    
+    // Run immediately and on any DOM changes
+    keepSidebarExpanded();
+    
+    // Use MutationObserver to watch for changes
+    const observer = new MutationObserver(keepSidebarExpanded);
+    observer.observe(document.body, { 
+        childList: true, 
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+    });
+    
+    // Also run on window resize
+    window.addEventListener('resize', keepSidebarExpanded);
+});
+</script>
 """, unsafe_allow_html=True)
 
 
