@@ -65,8 +65,10 @@ class AIAssistant:
             return
         
         try:
-            api_key = AIConfig.GEMINI_API_KEY
+            # Get API key using the new method
+            api_key = AIConfig.get_api_key()
             print(f"🔍 API Key status: {'Found' if api_key else 'Not found'}")
+            
             if api_key:
                 print(f"🔑 API Key (first 10 chars): {api_key[:10]}...")
                 genai.configure(api_key=api_key)
@@ -74,8 +76,8 @@ class AIAssistant:
                 self.is_gemini_enabled = True
                 print("✅ Gemini AI initialized successfully")
             else:
-                print("⚠️ Gemini API key not found in environment variables")
-                print("💡 Make sure GEMINI_API_KEY is set in your .env file")
+                print("⚠️ Gemini API key not found")
+                print("💡 Add GEMINI_API_KEY to Streamlit secrets or .env file")
         except Exception as e:
             print(f"❌ Failed to initialize Gemini: {e}")
             self.is_gemini_enabled = False

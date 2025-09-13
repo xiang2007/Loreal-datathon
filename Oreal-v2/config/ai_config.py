@@ -4,11 +4,32 @@ AI Configuration for Gemini Integration
 import os
 from typing import Optional
 
+# Try to import streamlit for secrets management
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
+
 class AIConfig:
     """Configuration for AI services"""
     
-    # Gemini API Configuration
-    GEMINI_API_KEY: Optional[str] = os.getenv('GEMINI_API_KEY')
+    # Gemini API Configuration - try Streamlit secrets first, then environment variables
+    @classmethod
+    def get_api_key(cls) -> Optional[str]:
+        """Get API key from Streamlit secrets or environment variables"""
+        if STREAMLIT_AVAILABLE:
+            try:
+                # Try Streamlit secrets first
+                return st.secrets["ai"]["GEMINI_API_KEY"]
+            except (KeyError, FileNotFoundError):
+                # Fallback to environment variable
+                return os.getenv('GEMINI_API_KEY')
+        else:
+            # Use environment variable if Streamlit not available
+            return os.getenv('GEMINI_API_KEY')
+    
+    GEMINI_API_KEY: Optional[str] = None  # Will be set dynamically
     GEMINI_MODEL: str = 'gemini-1.5-flash'  # or 'gemini-1.5-pro' for more advanced features
     
     # AI Assistant Settings
