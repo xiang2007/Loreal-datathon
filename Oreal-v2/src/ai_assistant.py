@@ -70,14 +70,21 @@ class AIAssistant:
             print(f"🔍 API Key status: {'Found' if api_key else 'Not found'}")
             
             if api_key:
-                print(f"🔑 API Key (first 10 chars): {api_key[:10]}...")
+                # Only show first few characters for security
+                masked_key = api_key[:5] + "*" * (len(api_key) - 10) + api_key[-5:] if len(api_key) > 10 else "*" * len(api_key)
+                print(f"🔑 API Key: {masked_key}")
+                
+                # Configure Gemini with the API key
                 genai.configure(api_key=api_key)
                 self.gemini_model = genai.GenerativeModel(AIConfig.GEMINI_MODEL)
                 self.is_gemini_enabled = True
                 print("✅ Gemini AI initialized successfully")
+                print(f"🤖 Using model: {AIConfig.GEMINI_MODEL}")
             else:
                 print("⚠️ Gemini API key not found")
                 print("💡 Add GEMINI_API_KEY to Streamlit secrets or .env file")
+                print("   See docs/GEMINI_SETUP.md for detailed instructions")
+                self.is_gemini_enabled = False
         except Exception as e:
             print(f"❌ Failed to initialize Gemini: {e}")
             self.is_gemini_enabled = False

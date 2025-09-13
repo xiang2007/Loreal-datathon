@@ -49,11 +49,15 @@ except ImportError as e:
 
 # Page configuration
 st.set_page_config(
-    page_title="L'Oréal Comment Analysis",
+    page_title="L'Oréal YouTube Comment Analysis",
     page_icon="💄",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Set session state to ensure sidebar visibility
+if 'sidebar_state' not in st.session_state:
+    st.session_state.sidebar_state = 'expanded'
 
 # Enhanced Custom CSS for Modern UI/UX
 st.markdown("""
@@ -85,42 +89,47 @@ st.markdown("""
     }
     
     /* Sidebar Styling - Force sidebar to stay visible */
-    .css-1d391kg {
+    [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
-    }
-    
-    /* Force sidebar to stay expanded */
-    .css-1lcbmhc {
-        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+        min-width: 300px !important;
+        width: 300px !important;
+        position: relative !important;
+        transform: none !important;
+        transition: none !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
         border-radius: 0 16px 16px 0;
-        min-width: 300px !important;
-        width: 300px !important;
     }
     
-    /* Prevent sidebar collapse */
-    .css-1cypcdb {
+    /* Target all sidebar containers with various class names */
+    .css-1d391kg, .css-1lcbmhc, .css-1cypcdb, .css-17eq0hr, .css-1544g2n, .css-1fcdlhc, .css-1vq4p4l {
+        background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
         min-width: 300px !important;
         width: 300px !important;
+        position: relative !important;
+        transform: none !important;
+        transition: none !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
     }
     
     /* Hide sidebar collapse button */
-    .css-1rs6os {
+    [data-testid="collapsedControl"], .css-1rs6os, .css-hied5v {
         display: none !important;
     }
     
     /* Force sidebar visibility on all screen sizes */
     @media (max-width: 768px) {
-        .css-1lcbmhc {
+        [data-testid="stSidebar"], .css-1d391kg, .css-1lcbmhc, .css-1cypcdb, .css-17eq0hr, .css-1544g2n, .css-1fcdlhc, .css-1vq4p4l {
             display: block !important;
             position: relative !important;
             transform: none !important;
             min-width: 280px !important;
             width: 280px !important;
-        }
-        
-        .css-1cypcdb {
-            min-width: 280px !important;
-            width: 280px !important;
+            visibility: visible !important;
+            opacity: 1 !important;
         }
     }
     
@@ -458,31 +467,70 @@ st.markdown("""
 document.addEventListener('DOMContentLoaded', function() {
     // Function to keep sidebar expanded
     function keepSidebarExpanded() {
+        // Target sidebar using data-testid attribute
         const sidebar = document.querySelector('[data-testid="stSidebar"]');
-        const sidebarContent = document.querySelector('.css-1lcbmhc, .css-1cypcdb, .css-17eq0hr, .css-1544g2n');
         
+        // Target all possible sidebar containers with various class names
+        const sidebarSelectors = [
+            '.css-1d391kg', '.css-1lcbmhc', '.css-1cypcdb', '.css-17eq0hr', 
+            '.css-1544g2n', '.css-1fcdlhc', '.css-1vq4p4l', '.css-6qob1r', 
+            '.css-79elbk', '.css-1oe6oti'
+        ];
+        
+        // Apply styles to main sidebar container
         if (sidebar) {
             sidebar.style.display = 'block';
-            sidebar.style.transform = 'translateX(0px)';
+            sidebar.style.transform = 'none';
             sidebar.style.minWidth = '300px';
             sidebar.style.width = '300px';
+            sidebar.style.position = 'relative';
+            sidebar.style.visibility = 'visible';
+            sidebar.style.opacity = '1';
+            sidebar.style.transition = 'none';
         }
         
-        if (sidebarContent) {
-            sidebarContent.style.display = 'block';
-            sidebarContent.style.minWidth = '300px';
-            sidebarContent.style.width = '300px';
-        }
+        // Apply styles to all possible sidebar containers
+        sidebarSelectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(el => {
+                if (el) {
+                    el.style.display = 'block';
+                    el.style.transform = 'none';
+                    el.style.minWidth = '300px';
+                    el.style.width = '300px';
+                    el.style.position = 'relative';
+                    el.style.visibility = 'visible';
+                    el.style.opacity = '1';
+                    el.style.transition = 'none';
+                }
+            });
+        });
         
-        // Hide collapse button if it exists
-        const collapseBtn = document.querySelector('[data-testid="collapsedControl"]');
-        if (collapseBtn) {
-            collapseBtn.style.display = 'none';
+        // Hide all collapse buttons
+        const collapseButtons = document.querySelectorAll('[data-testid="collapsedControl"], .css-1rs6os, .css-hied5v');
+        collapseButtons.forEach(btn => {
+            if (btn) btn.style.display = 'none';
+        });
+        
+        // Force cookie setting for sidebar state
+        try {
+            // Try to set a cookie to remember sidebar state
+            document.cookie = 'streamlit_sidebarState=expanded; path=/; max-age=31536000; SameSite=Lax';
+            
+            // Also try localStorage as a backup
+            localStorage.setItem('streamlit_sidebarState', 'expanded');
+        } catch (e) {
+            console.log('Unable to set sidebar state in storage', e);
         }
     }
     
-    // Run immediately and on any DOM changes
+    // Run immediately
     keepSidebarExpanded();
+    
+    // Run after a short delay to catch any late DOM changes
+    setTimeout(keepSidebarExpanded, 100);
+    setTimeout(keepSidebarExpanded, 500);
+    setTimeout(keepSidebarExpanded, 1000);
     
     // Use MutationObserver to watch for changes
     const observer = new MutationObserver(keepSidebarExpanded);
@@ -490,11 +538,12 @@ document.addEventListener('DOMContentLoaded', function() {
         childList: true, 
         subtree: true,
         attributes: true,
-        attributeFilter: ['style', 'class']
+        attributeFilter: ['style', 'class', 'data-testid']
     });
     
-    // Also run on window resize
+    // Also run on window resize and visibility change
     window.addEventListener('resize', keepSidebarExpanded);
+    document.addEventListener('visibilitychange', keepSidebarExpanded);
 });
 </script>
 """, unsafe_allow_html=True)

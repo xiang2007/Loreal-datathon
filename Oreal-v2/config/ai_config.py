@@ -22,9 +22,16 @@ class AIConfig:
             try:
                 # Try Streamlit secrets first
                 return st.secrets["ai"]["GEMINI_API_KEY"]
-            except (KeyError, FileNotFoundError):
+            except (KeyError, FileNotFoundError) as e:
+                print(f"⚠️ Error accessing Streamlit secrets: {e}")
                 # Fallback to environment variable
-                return os.getenv('GEMINI_API_KEY')
+                api_key = os.getenv('GEMINI_API_KEY')
+                if api_key:
+                    print("✅ Using API key from environment variable")
+                    return api_key
+                else:
+                    print("❌ No API key found in Streamlit secrets or environment variables")
+                    return None
         else:
             # Use environment variable if Streamlit not available
             return os.getenv('GEMINI_API_KEY')
