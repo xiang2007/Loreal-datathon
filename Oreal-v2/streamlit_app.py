@@ -691,7 +691,7 @@ def upload_single_dataset():
                 
                 # Show preview
                 st.write("**Preview:**")
-                st.dataframe(comments_df.head(), use_container_width=True)
+                st.dataframe(comments_df.head(), width='stretch')
                 
                 # Validate required columns
                 required_cols = ['videoId', 'textOriginal']
@@ -731,7 +731,7 @@ def upload_single_dataset():
                 
                 # Show preview
                 st.write("**Preview:**")
-                st.dataframe(videos_df.head(), use_container_width=True)
+                st.dataframe(videos_df.head(), width='stretch')
                 
                 # Validate required columns
                 required_cols = ['videoId', 'title']
@@ -751,7 +751,7 @@ def upload_single_dataset():
         
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🚀 Start Analysis", type="primary", use_container_width=True):
+            if st.button("🚀 Start Analysis", type="primary", width='stretch'):
                 run_analysis(comments_df, videos_df)
 
 def upload_multiple_datasets():
@@ -854,7 +854,7 @@ def upload_multiple_datasets():
                     sample_size = st.slider("Sample size per dataset", 10000, 100000, 50000, 10000)
             
             # Start batch processing
-            if st.button("🚀 Start Batch Processing", type="primary", use_container_width=True):
+            if st.button("🚀 Start Batch Processing", type="primary", width='stretch'):
                 run_batch_analysis(
                     comment_files, 
                     video_files, 
@@ -1211,7 +1211,7 @@ def run_batch_analysis(comment_files, video_files, combine_results, generate_ind
             })
         
         summary_df = pd.DataFrame(summary_data)
-        st.dataframe(summary_df, use_container_width=True)
+        st.dataframe(summary_df, width='stretch')
 
 def auto_match_files(comment_files, video_files):
     """Automatically match comment and video files"""
@@ -1310,7 +1310,7 @@ def analysis_page():
                 'spam': '#DC143C'
             }
         )
-        st.plotly_chart(fig_relevance, use_container_width=True)
+        st.plotly_chart(fig_relevance, width='stretch')
     
     with col2:
         st.write("**Sentiment Distribution**")
@@ -1325,7 +1325,7 @@ def analysis_page():
                 'negative': '#FF6347'
             }
         )
-        st.plotly_chart(fig_sentiment, use_container_width=True)
+        st.plotly_chart(fig_sentiment, width='stretch')
     
     # Enhanced Comment Filtering Section
     st.markdown("---")
@@ -1492,37 +1492,37 @@ def analysis_page():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            if st.button("🌟 High Quality Comments", use_container_width=True):
+            if st.button("🌟 High Quality Comments", width='stretch'):
                 st.session_state.quick_filter = "high_quality"
         
         with col2:
-            if st.button("❓ Questions Only", use_container_width=True):
+            if st.button("❓ Questions Only", width='stretch'):
                 st.session_state.quick_filter = "questions"
         
         with col3:
-            if st.button("💖 Positive Feedback", use_container_width=True):
+            if st.button("💖 Positive Feedback", width='stretch'):
                 st.session_state.quick_filter = "positive"
         
         with col4:
-            if st.button("🚨 Spam & Low Quality", use_container_width=True):
+            if st.button("🚨 Spam & Low Quality", width='stretch'):
                 st.session_state.quick_filter = "spam_low"
         
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            if st.button("🎓 Tutorial Requests", use_container_width=True):
+            if st.button("🎓 Tutorial Requests", width='stretch'):
                 st.session_state.quick_filter = "tutorial_requests"
         
         with col2:
-            if st.button("🛍️ Product Inquiries", use_container_width=True):
+            if st.button("🛍️ Product Inquiries", width='stretch'):
                 st.session_state.quick_filter = "product_inquiries"
         
         with col3:
-            if st.button("👥 Personal Stories", use_container_width=True):
+            if st.button("👥 Personal Stories", width='stretch'):
                 st.session_state.quick_filter = "personal_stories"
         
         with col4:
-            if st.button("🔄 Reset Filters", use_container_width=True):
+            if st.button("🔄 Reset Filters", width='stretch'):
                 st.session_state.quick_filter = "reset"
     
     # Apply all filters
