@@ -1737,7 +1737,7 @@ def analysis_page():
     
     with col3:
         if st.button("🔄 Reset All Filters", use_container_width=True):
-            st.rerun()
+            st.experimental_rerun()
     
     # Display the filtered comments table
     if len(filtered_df) > 0:
@@ -2637,9 +2637,8 @@ def visualization_page():
             )
             
             st.dataframe(
-                display_df.sort_values('Quality', ascending=False),
-                use_container_width=True,
-                hide_index=True
+                display_df.sort_values('Quality', ascending=False).reset_index(drop=True),
+                use_container_width=True
             )
             
             # Simple insights
@@ -2733,6 +2732,13 @@ def ai_assistant_page():
         model_name = "Gemini AI" if ai_assistant.is_gemini_enabled else "Rule-based"
         st.metric("AI Model", model_name)
     
+    # Display Gemini integration status details
+    if ai_assistant.is_gemini_enabled:
+        st.success("✅ **Gemini AI Integration:** Active and fully operational")
+    else:
+        st.warning(f"⚠️ **Gemini AI Integration:** Disabled - {ai_assistant.fallback_reason}")
+        st.info("💡 **Using:** Rule-based fallback system for answering questions")
+    
     if not api_key:
         st.info("💡 **Tip:** Add your Gemini API key to `.env` file for enhanced AI responses: `GEMINI_API_KEY=your_key_here`")
     
@@ -2800,7 +2806,7 @@ def ai_assistant_page():
             with st.spinner("🤖 Analyzing..."):
                 answer = ai_assistant.answer_question(question)
                 st.session_state.ai_chat_history.append((question, answer))
-                st.rerun()
+                st.experimental_rerun()
     
     with col2:
         if st.button("🛡️ Spam Analysis", use_container_width=True):
@@ -2808,7 +2814,7 @@ def ai_assistant_page():
             with st.spinner("🤖 Analyzing..."):
                 answer = ai_assistant.answer_question(question)
                 st.session_state.ai_chat_history.append((question, answer))
-                st.rerun()
+                st.experimental_rerun()
     
     with col3:
         if st.button("😊 Sentiment Check", use_container_width=True):
@@ -2816,7 +2822,7 @@ def ai_assistant_page():
             with st.spinner("🤖 Analyzing..."):
                 answer = ai_assistant.answer_question(question)
                 st.session_state.ai_chat_history.append((question, answer))
-                st.rerun()
+                st.experimental_rerun()
     
     with col4:
         if st.button("💡 Get Recommendations", use_container_width=True):
@@ -2824,7 +2830,7 @@ def ai_assistant_page():
             with st.spinner("🤖 Analyzing..."):
                 answer = ai_assistant.answer_question(question)
                 st.session_state.ai_chat_history.append((question, answer))
-                st.rerun()
+                st.experimental_rerun()
     
     # Custom Question Input
     st.markdown("#### 💭 Ask Your Own Question")
@@ -2860,7 +2866,7 @@ def ai_assistant_page():
                     answer = ai_assistant.answer_question(user_question)
                 
                 st.session_state.ai_chat_history.append((user_question, answer))
-                st.rerun()
+                st.experimental_rerun()
             except Exception as e:
                 st.error(f"AI Assistant error: {e}")
     
@@ -2889,7 +2895,7 @@ def ai_assistant_page():
                             answer = ai_assistant.answer_question(question)
                         
                         st.session_state.ai_chat_history.append((question, answer))
-                        st.rerun()
+                        st.experimental_rerun()
                     except Exception as e:
                         st.error(f"AI Assistant error: {e}")
     
@@ -2902,7 +2908,7 @@ def ai_assistant_page():
             if st.button("🗑️ Clear Chat History", use_container_width=True):
                 st.session_state.ai_chat_history = []
                 st.success("Chat history cleared!")
-                st.rerun()
+                st.experimental_rerun()
         
         with col2:
             # Export chat

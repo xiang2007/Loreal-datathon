@@ -46,6 +46,9 @@ except ImportError:
     pass
 
 class AIAssistant:
+    # Class-level cache for Gemini responses
+    _response_cache = {}
+    
     def __init__(self, df=None):
         self.df = df
         self.context_data = {}
@@ -59,35 +62,131 @@ class AIAssistant:
             self._prepare_context()
     
     def _initialize_gemini(self):
-        """Initialize Gemini AI model"""
+        """Initialize Gemini AI model with enhanced error handling and validation"""
+        self.initialization_errors = []
+        self.fallback_reason = None
+        self.is_gemini_enabled = False
+        
+        # Check if dependencies are available
         if not GEMINI_AVAILABLE:
-            print("⚠️ Gemini not available - missing dependencies")
+            error_msg = "Gemini dependencies not available. Install with: pip install google-generativeai"
+            self.initialization_errors.append(error_msg)
+            print(f"⚠️ {error_msg}")
+            self._setup_fallback_system("missing_dependency")
             return
         
+        # Get API key with improved error handling
         try:
-            # Get API key using the new method
-            api_key = AIConfig.get_api_key()
-            print(f"🔍 API Key status: {'Found' if api_key else 'Not found'}")
+            # Store the API key in the AIConfig class for reuse
+            AIConfig.GEMINI_API_KEY = AIConfig.get_api_key()
             
-            if api_key:
-                # Only show first few characters for security
-                masked_key = api_key[:5] + "*" * (len(api_key) - 10) + api_key[-5:] if len(api_key) > 10 else "*" * len(api_key)
-                print(f"🔑 API Key: {masked_key}")
+            if not AIConfig.GEMINI_API_KEY:
+                error_msg = "No Gemini API key found in environment variables, Streamlit secrets, or .env file"
+                self.initialization_errors.append(error_msg)
+                print(f"❌ {error_msg}")
+                print("💡 See docs/GEMINI_SETUP.md for detailed instructions on setting up your API key")
+                self._setup_fallback_system("missing_api_key")
+                return
                 
-                # Configure Gemini with the API key
-                genai.configure(api_key=api_key)
+            # Mask API key for secure logging
+            key_length = len(AIConfig.GEMINI_API_KEY)
+            masked_key = AIConfig.GEMINI_API_KEY[:4] + "*" * (key_length - 8) + AIConfig.GEMINI_API_KEY[-4:] if key_length > 8 else "*" * key_length
+            print(f"🔑 API Key found: {masked_key}")
+            
+            # Configure Gemini with the API key
+            genai.configure(api_key=AIConfig.GEMINI_API_KEY)
+            
+            # Validate model availability
+            available_models = []
+            try:
+                print("🔍 Checking available models...")
+                model_list = genai.list_models()
+                available_models = [model.name for model in model_list]
+                print(f"✅ Found {len(available_models)} available models")
+                
+                # Check if our target model is available
+                target_model = AIConfig.GEMINI_MODEL
+                if target_model not in [model.name for model in model_list]:
+                    print(f"⚠️ Target model '{target_model}' not found in available models")
+                    print(f"📋 Available models: {', '.join(available_models[:5])}{'...' if len(available_models) > 5 else ''}")
+                    
+                    # Try to find a suitable alternative model
+                    alternative_found = False
+                    for model_name in available_models:
+                        if 'gemini' in model_name.lower():
+                            print(f"🔄 Switching to available model: {model_name}")
+                            AIConfig.GEMINI_MODEL = model_name
+                            alternative_found = True
+                            break
+                    
+                    if not alternative_found:
+                        error_msg = f"No suitable Gemini model found among available models"
+                        self.initialization_errors.append(error_msg)
+                        print(f"❌ {error_msg}")
+                        self._setup_fallback_system("no_suitable_model")
+                        return
+            except Exception as model_err:
+                error_msg = f"Error listing models: {model_err}"
+                self.initialization_errors.append(error_msg)
+                print(f"⚠️ {error_msg}")
+                self._setup_fallback_system("model_listing_error")
+                return
+            
+            # Create the model with validation
+            try:
                 self.gemini_model = genai.GenerativeModel(AIConfig.GEMINI_MODEL)
-                self.is_gemini_enabled = True
-                print("✅ Gemini AI initialized successfully")
-                print(f"🤖 Using model: {AIConfig.GEMINI_MODEL}")
-            else:
-                print("⚠️ Gemini API key not found")
-                print("💡 Add GEMINI_API_KEY to Streamlit secrets or .env file")
-                print("   See docs/GEMINI_SETUP.md for detailed instructions")
-                self.is_gemini_enabled = False
+                print(f"✅ Gemini model created: {AIConfig.GEMINI_MODEL}")
+                
+                # Test the model with a simple prompt to verify it's working
+                try:
+                    print("🧪 Testing model with simple prompt...")
+                    test_response = self.gemini_model.generate_content("Respond with 'OK' if you can receive this message.")
+                    if test_response and hasattr(test_response, 'text') and 'ok' in test_response.text.lower():
+                        print("✅ Model test successful!")
+                        self.is_gemini_enabled = True
+                        print(f"✅ Gemini AI initialized successfully with model: {AIConfig.GEMINI_MODEL}")
+                    else:
+                        error_msg = "Model test produced unexpected response"
+                        self.initialization_errors.append(error_msg)
+                        print(f"⚠️ {error_msg}")
+                        self._setup_fallback_system("model_test_failed")
+                except Exception as test_err:
+                    error_msg = f"Model test failed: {test_err}"
+                    self.initialization_errors.append(error_msg)
+                    print(f"⚠️ {error_msg}")
+                    self._setup_fallback_system("model_test_error")
+            except Exception as model_err:
+                error_msg = f"Error creating model: {model_err}"
+                self.initialization_errors.append(error_msg)
+                print(f"❌ {error_msg}")
+                self._setup_fallback_system("model_creation_error")
         except Exception as e:
-            print(f"❌ Failed to initialize Gemini: {e}")
-            self.is_gemini_enabled = False
+            error_msg = f"Unexpected error during Gemini initialization: {e}"
+            self.initialization_errors.append(error_msg)
+            print(f"❌ {error_msg}")
+            self._setup_fallback_system("unexpected_error")
+    
+    def _setup_fallback_system(self, error_type):
+        """Set up fallback system when Gemini is unavailable"""
+        self.is_gemini_enabled = False
+        self.fallback_reason = error_type
+        
+        print("🔄 Setting up rule-based fallback system")
+        
+        # Provide specific guidance based on error type
+        if error_type == "missing_dependency":
+            print("💡 To enable Gemini AI, install required package: pip install google-generativeai")
+        elif error_type == "missing_api_key":
+            print("💡 To enable Gemini AI, set GOOGLE_API_KEY environment variable")
+            print("   Get your API key from: https://makersuite.google.com/app/apikey")
+        elif error_type == "no_suitable_model" or error_type == "model_listing_error":
+            print("💡 Check your Google AI Studio account for model access: https://makersuite.google.com/")
+        elif error_type == "quota_exceeded":
+            print("💡 Your Gemini API quota has been exceeded. Consider upgrading your plan.")
+        
+        print("✅ Rule-based fallback system ready")
+        print("ℹ️ The system will use data-driven rules to answer questions")
+        print("ℹ️ For best results, enable Gemini AI by resolving the issues above")
     
     def _prepare_context(self):
         """Prepare context data for AI analysis"""
@@ -347,52 +446,133 @@ class AIAssistant:
             return f"📊 Summary: {total:,} comments, {spam_rate:.1f}% spam, {avg_quality:.1f}/5 quality."
     
     def _answer_with_gemini(self, question):
-        """Answer questions using Gemini AI"""
+        """Answer questions using Gemini AI with enhanced prompt engineering, caching, and robust fallback"""
+        # Check if Gemini is enabled before attempting to use it
+        if not self.is_gemini_enabled:
+            print(f"⚠️ Gemini not available (reason: {self.fallback_reason}), using rule-based fallback system")
+            return self._answer_with_rules(question)
+        
+        # Generate a cache key based on the question and data context hash
+        import hashlib
+        data_hash = hashlib.md5(str(self.df.shape).encode()).hexdigest()[:8] if self.df is not None else "nodata"
+        cache_key = f"{question}_{data_hash}"
+        
+        # Check if response is in cache
+        if cache_key in AIAssistant._response_cache:
+            print(f"🔄 Using cached response for question: {question[:30]}...")
+            return AIAssistant._response_cache[cache_key]
+        
         try:
             # Prepare data context for Gemini
             data_context = self._prepare_gemini_context()
             
-            # Create the prompt
+            # Determine question type for specialized prompts
+            question_lower = question.lower()
+            question_type = "general"
+            
+            if any(word in question_lower for word in ['spam', 'fake', 'bot']):
+                question_type = "spam"
+            elif any(word in question_lower for word in ['sentiment', 'positive', 'negative', 'feel', 'emotion']):
+                question_type = "sentiment"
+            elif any(word in question_lower for word in ['engagement', 'interact', 'comment', 'participation']):
+                question_type = "engagement"
+            elif any(word in question_lower for word in ['content', 'strategy', 'plan', 'recommend', 'future']):
+                question_type = "content_strategy"
+            
+            # Get specialized prompt if available
+            specialized_prompt = AIConfig.get_specialized_prompt(question_type)
+            
+            # Create the enhanced prompt with specialized instructions
             prompt = f"""
             {AIConfig.SYSTEM_PROMPT}
+            
+            {specialized_prompt}
             
             DATA CONTEXT:
             {data_context}
             
             USER QUESTION: {question}
             
-            Please provide a helpful, specific answer based on the actual data provided above.
-            Include specific numbers and percentages where relevant.
-            Give actionable recommendations when appropriate.
-            Keep the response conversational and easy to understand.
+            IMPORTANT INSTRUCTIONS:
+            1. Analyze the data thoroughly before responding
+            2. Include specific metrics and percentages from the data
+            3. Structure your response with clear sections
+            4. Provide at least 3 specific, actionable recommendations
+            5. Use formatting (bold, bullets, etc.) to highlight key points
+            6. Begin with a brief summary of your findings
+            7. End with concrete next steps
             """
             
-            # Generate response
+            print(f"🔍 Sending request to Gemini model: {AIConfig.GEMINI_MODEL}")
+            print(f"📝 Using specialized prompt for: {question_type}")
+            
+            # Set timeout for API call to prevent hanging
+            import time
+            start_time = time.time()
+            
+            # Generate response with enhanced configuration
             response = self.gemini_model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     max_output_tokens=AIConfig.MAX_TOKENS,
                     temperature=AIConfig.TEMPERATURE,
+                    top_p=0.95,  # Add top_p for better quality
+                    top_k=40,    # Add top_k for better quality
                 )
             )
             
-            return response.text
+            elapsed_time = time.time() - start_time
+            print(f"✅ Received response from Gemini in {elapsed_time:.2f} seconds")
+            
+            # Process the response to ensure it's well-formatted
+            response_text = response.text
+            
+            # Add a signature to indicate Gemini was used
+            response_text += "\n\n_Analysis powered by Google Gemini_"
+            
+            # Store in cache before returning
+            AIAssistant._response_cache[cache_key] = response_text
+            print(f"💾 Response cached (cache size: {len(AIAssistant._response_cache)})")
+            
+            # Limit cache size to prevent memory issues (keep most recent 50 responses)
+            if len(AIAssistant._response_cache) > 50:
+                # Remove oldest cache entry
+                oldest_key = next(iter(AIAssistant._response_cache))
+                AIAssistant._response_cache.pop(oldest_key)
+                print(f"🧹 Removed oldest cache entry to maintain cache size")
+            
+            return response_text
             
         except Exception as e:
             error_msg = str(e)
-            print(f"Gemini error: {e}")
+            print(f"❌ Gemini error: {e}")
             
             # Check if it's a quota error
             if "quota" in error_msg.lower() or "429" in error_msg:
+                print("⚠️ API quota exceeded, switching to fallback system")
+                self._setup_fallback_system("quota_exceeded")
                 fallback_response = self._answer_with_rules(question)
-                return f"🤖 **AI Assistant** (Data-driven analysis):\n\n{fallback_response}\n\n" + \
+                formatted_response = f"🤖 **AI Assistant** (Data-driven analysis):\n\n{fallback_response}\n\n" + \
                        f"💡 *Note: Using enhanced data analysis due to API limits. Upgrade your Gemini plan for full AI responses.*"
+                
+                # Cache the fallback response too
+                AIAssistant._response_cache[cache_key] = formatted_response
+                print(f"💾 Fallback response cached for quota error")
+                
+                return formatted_response
             else:
                 # Other errors - use fallback
-                return self._answer_with_rules(question)
+                print(f"🔄 Gemini error, falling back to rule-based system: {error_msg}")
+                fallback_response = self._answer_with_rules(question)
+                
+                # Cache the fallback response
+                AIAssistant._response_cache[cache_key] = fallback_response
+                print(f"💾 Fallback response cached for general error")
+                
+                return fallback_response
     
     def _prepare_gemini_context(self):
-        """Prepare comprehensive data context for Gemini"""
+        """Prepare comprehensive data context for Gemini with advanced insights"""
         if self.df is None or self.df.empty:
             return "No data available"
         
@@ -417,31 +597,26 @@ class AIAssistant:
         # Relevance analysis
         relevance_dist = self.df.get('relevance', pd.Series()).value_counts(normalize=True) * 100
         
-        # Video performance (if available)
-        video_performance = ""
-        if 'title' in self.df.columns:
-            video_stats = self.df.groupby('title').agg({
-                'quality_score': 'mean',
-                'textOriginal_cleaned': 'count'
-            }).round(2)
-            video_stats.columns = ['Avg_Quality', 'Comment_Count']
-            video_stats = video_stats.sort_values('Avg_Quality', ascending=False)
-            
-            video_performance = f"""
-VIDEO PERFORMANCE:
-Top 3 performing videos by quality:
-{video_stats.head(3).to_string()}
-"""
+        # Trend analysis (if timestamp available)
+        trend_analysis = self._format_trend_analysis()
         
-        # Sample comments for context
-        sample_comments = ""
-        if 'textOriginal_cleaned' in self.df.columns:
-            genuine_comments = self.df[self.df.get('relevance', '') == 'genuine']['textOriginal_cleaned'].dropna()
-            if len(genuine_comments) > 0:
-                sample_comments = f"""
-SAMPLE GENUINE COMMENTS:
-{genuine_comments.head(5).tolist()}
-"""
+        # Sentiment ratio and change over time
+        sentiment_ratio = self._format_sentiment_ratio(sentiment_dist)
+        
+        # Engagement quality breakdown
+        engagement_quality = self._format_engagement_quality(engagement_dist)
+        
+        # Comment length analysis
+        comment_length_analysis = self._format_comment_length_analysis()
+        
+        # Video performance comparison (if available)
+        video_performance = self._format_video_metrics()
+        
+        # Content themes and topics
+        content_themes = self._format_content_themes()
+        
+        # Sample comments by category
+        sample_comments = self._format_sample_comments()
         
         context = f"""
 COMMENT ANALYSIS DATA SUMMARY:
@@ -461,6 +636,7 @@ SENTIMENT BREAKDOWN:
 - Positive Sentiment: {sentiment_dist.get('positive', 0):.1f}%
 - Neutral Sentiment: {sentiment_dist.get('neutral', 0):.1f}%
 - Negative Sentiment: {sentiment_dist.get('negative', 0):.1f}%
+{sentiment_ratio}
 
 ENGAGEMENT TYPES:
 - Praise/Compliments: {engagement_dist.get('praise', 0):.1f}%
@@ -468,8 +644,15 @@ ENGAGEMENT TYPES:
 - Technique Requests: {engagement_dist.get('technique_request', 0):.1f}%
 - General Comments: {engagement_dist.get('general', 0):.1f}%
 - Product Inquiries: {engagement_dist.get('product_inquiry', 0):.1f}%
+{engagement_quality}
+
+{comment_length_analysis}
+
+{trend_analysis}
 
 {video_performance}
+
+{content_themes}
 
 {sample_comments}
 """
@@ -651,6 +834,297 @@ ENGAGEMENT TYPES:
             response += f"📈 Focus on strategies to encourage more meaningful interactions.\n"
         
         return response
+        
+    def _format_trend_analysis(self):
+        """Format trend analysis data for Gemini context"""
+        if self.df is None or self.df.empty or 'publishedAt' not in self.df.columns:
+            return ""
+        
+        try:
+            # Convert to datetime if not already
+            if not pd.api.types.is_datetime64_any_dtype(self.df['publishedAt']):
+                self.df['publishedAt'] = pd.to_datetime(self.df['publishedAt'], errors='coerce')
+            
+            # Group by week and calculate metrics
+            self.df['week'] = self.df['publishedAt'].dt.isocalendar().week
+            weekly_data = self.df.groupby('week').agg({
+                'quality_score': 'mean',
+                'vader_score': 'mean',
+                'textOriginal_cleaned': 'count'
+            }).reset_index()
+            
+            # Calculate week-over-week changes
+            weekly_data['quality_change'] = weekly_data['quality_score'].diff()
+            weekly_data['sentiment_change'] = weekly_data['vader_score'].diff()
+            weekly_data['volume_change'] = weekly_data['textOriginal_cleaned'].diff()
+            
+            # Get latest week's changes
+            latest = weekly_data.iloc[-1]
+            
+            # Format trend insights
+            trend_text = "TREND ANALYSIS (WEEK-OVER-WEEK):\n"
+            
+            # Quality trend
+            if latest['quality_change'] > 0.2:
+                trend_text += "- Quality Score: ↗️ Significant improvement\n"
+            elif latest['quality_change'] > 0:
+                trend_text += "- Quality Score: ↗️ Slight improvement\n"
+            elif latest['quality_change'] < -0.2:
+                trend_text += "- Quality Score: ↘️ Significant decline\n"
+            elif latest['quality_change'] < 0:
+                trend_text += "- Quality Score: ↘️ Slight decline\n"
+            else:
+                trend_text += "- Quality Score: → Stable\n"
+            
+            # Sentiment trend
+            if latest['sentiment_change'] > 0.1:
+                trend_text += "- Sentiment: ↗️ Becoming more positive\n"
+            elif latest['sentiment_change'] < -0.1:
+                trend_text += "- Sentiment: ↘️ Becoming more negative\n"
+            else:
+                trend_text += "- Sentiment: → Stable sentiment\n"
+            
+            # Volume trend
+            if latest['volume_change'] > 10:
+                trend_text += "- Comment Volume: ↗️ Increasing engagement\n"
+            elif latest['volume_change'] < -10:
+                trend_text += "- Comment Volume: ↘️ Decreasing engagement\n"
+            else:
+                trend_text += "- Comment Volume: → Stable engagement volume\n"
+                
+            return trend_text
+        except Exception as e:
+            print(f"Error in trend analysis: {e}")
+            return ""
+    
+    def _format_sentiment_ratio(self, sentiment_dist):
+        """Format sentiment ratio analysis for Gemini context"""
+        if sentiment_dist is None or len(sentiment_dist) == 0:
+            return ""
+        
+        try:
+            # Calculate positive to negative ratio
+            positive = sentiment_dist.get('positive', 0)
+            negative = sentiment_dist.get('negative', 0)
+            
+            if negative > 0:
+                ratio = positive / negative
+                ratio_text = f"- Positive-to-Negative Ratio: {ratio:.1f}:1\n"
+                
+                if ratio >= 5:
+                    ratio_text += "  (Excellent sentiment balance - overwhelmingly positive)\n"
+                elif ratio >= 3:
+                    ratio_text += "  (Very good sentiment balance - strongly positive)\n"
+                elif ratio >= 2:
+                    ratio_text += "  (Good sentiment balance - moderately positive)\n"
+                elif ratio >= 1:
+                    ratio_text += "  (Fair sentiment balance - slightly positive)\n"
+                else:
+                    ratio_text += "  (Concerning sentiment balance - more negative than positive)\n"
+            else:
+                ratio_text = "- Positive-to-Negative Ratio: ∞:1 (No negative comments)\n"
+                
+            return ratio_text
+        except Exception as e:
+            print(f"Error in sentiment ratio analysis: {e}")
+            return ""
+    
+    def _format_engagement_quality(self, engagement_dist):
+        """Format engagement quality analysis for Gemini context"""
+        if engagement_dist is None or len(engagement_dist) == 0:
+            return ""
+        
+        try:
+            # Calculate meaningful engagement percentage
+            meaningful_types = ['question', 'technique_request', 'suggestion', 'product_inquiry']
+            meaningful_engagement = sum(engagement_dist.get(t, 0) for t in meaningful_types)
+            
+            quality_text = f"- Meaningful Engagement: {meaningful_engagement:.1f}%\n"
+            
+            # Add interpretation
+            if meaningful_engagement >= 50:
+                quality_text += "  (Excellent - Your content drives substantive interaction)\n"
+            elif meaningful_engagement >= 30:
+                quality_text += "  (Good - Your content encourages thoughtful engagement)\n"
+            elif meaningful_engagement >= 15:
+                quality_text += "  (Fair - Some meaningful interaction, room for improvement)\n"
+            else:
+                quality_text += "  (Low - Consider strategies to encourage more meaningful engagement)\n"
+                
+            return quality_text
+        except Exception as e:
+            print(f"Error in engagement quality analysis: {e}")
+            return ""
+    
+    def _format_comment_length_analysis(self):
+        """Format comment length analysis for Gemini context"""
+        if self.df is None or self.df.empty or 'textOriginal_cleaned' not in self.df.columns:
+            return ""
+        
+        try:
+            # Calculate comment length metrics
+            self.df['comment_length'] = self.df['textOriginal_cleaned'].str.len()
+            
+            avg_length = self.df['comment_length'].mean()
+            short_comments = (self.df['comment_length'] < 50).mean() * 100
+            long_comments = (self.df['comment_length'] > 150).mean() * 100
+            
+            length_text = "COMMENT LENGTH ANALYSIS:\n"
+            length_text += f"- Average Comment Length: {avg_length:.1f} characters\n"
+            length_text += f"- Short Comments (<50 chars): {short_comments:.1f}%\n"
+            length_text += f"- Long Comments (>150 chars): {long_comments:.1f}%\n"
+            
+            # Add interpretation
+            if long_comments > 30:
+                length_text += "  (Excellent - Your audience is highly engaged and detailed)\n"
+            elif long_comments > 15:
+                length_text += "  (Good - Your content inspires thoughtful responses)\n"
+            elif short_comments > 70:
+                length_text += "  (Concerning - Many brief, potentially low-effort comments)\n"
+            else:
+                length_text += "  (Average - Typical comment length distribution)\n"
+                
+            return length_text
+        except Exception as e:
+            print(f"Error in comment length analysis: {e}")
+            return ""
+    
+    def _format_video_metrics(self):
+        """Format video performance metrics for Gemini context"""
+        if self.df is None or self.df.empty or 'title' not in self.df.columns:
+            return ""
+        
+        try:
+            # Calculate video performance metrics
+            video_stats = self.df.groupby('title').agg({
+                'quality_score': 'mean',
+                'textOriginal_cleaned': 'count',
+                'vader_score': 'mean'
+            }).round(2)
+            
+            video_stats.columns = ['Avg_Quality', 'Comment_Count', 'Sentiment_Score']
+            
+            # Sort by different metrics
+            top_by_quality = video_stats.sort_values('Avg_Quality', ascending=False).head(3)
+            top_by_engagement = video_stats.sort_values('Comment_Count', ascending=False).head(3)
+            top_by_sentiment = video_stats.sort_values('Sentiment_Score', ascending=False).head(3)
+            
+            # Format the output
+            video_text = "VIDEO PERFORMANCE COMPARISON:\n"
+            
+            video_text += "Top 3 by Quality Score:\n"
+            video_text += f"{top_by_quality[['Avg_Quality']].to_string()}\n\n"
+            
+            video_text += "Top 3 by Comment Volume:\n"
+            video_text += f"{top_by_engagement[['Comment_Count']].to_string()}\n\n"
+            
+            video_text += "Top 3 by Positive Sentiment:\n"
+            video_text += f"{top_by_sentiment[['Sentiment_Score']].to_string()}\n"
+            
+            return video_text
+        except Exception as e:
+            print(f"Error in video metrics analysis: {e}")
+            return ""
+    
+    def _format_content_themes(self):
+        """Format content themes and topics for Gemini context"""
+        if self.df is None or self.df.empty or 'textOriginal_cleaned' not in self.df.columns:
+            return ""
+        
+        try:
+            # Extract comments for analysis
+            comments = self.df['textOriginal_cleaned'].dropna().tolist()
+            
+            # Simple keyword-based theme extraction
+            keywords = {
+                'makeup': ['makeup', 'foundation', 'concealer', 'lipstick', 'eyeshadow', 'mascara'],
+                'skincare': ['skincare', 'moisturizer', 'cleanser', 'serum', 'sunscreen', 'acne'],
+                'haircare': ['hair', 'shampoo', 'conditioner', 'hairstyle', 'haircut', 'color'],
+                'tutorial': ['tutorial', 'how to', 'technique', 'steps', 'guide', 'learn'],
+                'product': ['product', 'brand', 'purchase', 'buy', 'recommend', 'review']
+            }
+            
+            # Count occurrences
+            theme_counts = {theme: 0 for theme in keywords}
+            for comment in comments:
+                comment = comment.lower()
+                for theme, terms in keywords.items():
+                    if any(term in comment for term in terms):
+                        theme_counts[theme] += 1
+            
+            # Calculate percentages
+            total = len(comments)
+            if total > 0:
+                theme_percentages = {theme: (count / total) * 100 for theme, count in theme_counts.items()}
+                
+                # Format the output
+                themes_text = "CONTENT THEMES & TOPICS:\n"
+                for theme, percentage in sorted(theme_percentages.items(), key=lambda x: x[1], reverse=True):
+                    themes_text += f"- {theme.title()}: {percentage:.1f}%\n"
+                
+                # Add top keywords if available
+                try:
+                    from collections import Counter
+                    import re
+                    
+                    # Extract words and count frequencies
+                    words = []
+                    for comment in comments:
+                        words.extend(re.findall(r'\b[a-zA-Z]{3,}\b', comment.lower()))
+                    
+                    # Remove common stopwords
+                    stopwords = ['the', 'and', 'this', 'that', 'for', 'you', 'your', 'with', 'have', 'are', 'not']
+                    filtered_words = [word for word in words if word not in stopwords]
+                    
+                    # Get top keywords
+                    word_counts = Counter(filtered_words).most_common(5)
+                    
+                    if word_counts:
+                        themes_text += "\nTop Keywords:\n"
+                        for word, count in word_counts:
+                            themes_text += f"- {word}: {count} mentions\n"
+                except Exception as e:
+                    print(f"Error extracting keywords: {e}")
+                
+                return themes_text
+            return ""
+        except Exception as e:
+            print(f"Error in content themes analysis: {e}")
+            return ""
+    
+    def _format_sample_comments(self):
+        """Format categorized sample comments for Gemini context"""
+        if self.df is None or self.df.empty or 'textOriginal_cleaned' not in self.df.columns:
+            return ""
+        
+        try:
+            # Prepare different categories of comments
+            categories = {
+                'Highest Quality': self.df.sort_values('quality_score', ascending=False),
+                'Most Positive': self.df[self.df['vader_sentiment'] == 'positive'].sort_values('vader_score', ascending=False),
+                'Questions': self.df[self.df['engagement_type'] == 'question'],
+                'Suggestions': self.df[self.df['engagement_type'] == 'suggestion'],
+                'Product Inquiries': self.df[self.df['engagement_type'] == 'product_inquiry']
+            }
+            
+            # Format the output
+            comments_text = "SAMPLE COMMENTS BY CATEGORY:\n"
+            
+            for category, data in categories.items():
+                if len(data) > 0:
+                    comments = data['textOriginal_cleaned'].head(2).tolist()
+                    if comments:
+                        comments_text += f"\n{category}:\n"
+                        for i, comment in enumerate(comments):
+                            # Truncate long comments
+                            if len(comment) > 100:
+                                comment = comment[:97] + "..."
+                            comments_text += f"{i+1}. {comment}\n"
+            
+            return comments_text
+        except Exception as e:
+            print(f"Error in sample comments formatting: {e}")
+            return ""
     
     def _generate_recommendations_insight(self, insights):
         """Generate recommendations from actual data"""
