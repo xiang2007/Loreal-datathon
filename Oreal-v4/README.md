@@ -4,6 +4,25 @@ A web app to help you analyze YouTube comments quickly. Upload your CSV files an
 
 ---
 
+## How to Run the YouTube Comments Analyzer
+
+Follow these steps to get the app running on your computer:
+
+---
+
+### 1. Install Python
+Make sure Python 3 is installed on your computer.  
+You can download it here: [https://www.python.org/downloads/](https://www.python.org/downloads/)
+
+---
+
+### 2. Install Dependencies
+Open a terminal or command prompt, go to the project folder, and run:
+
+```bash
+pip install -r requirements.txt
+
+
 ## Features
 
 - Upload multiple CSV files with YouTube comments.
