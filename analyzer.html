@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Comments Analyzer Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin:0;
+    padding:0;
+    background:#f0f2f5;
+    color:#2c3e50;
+}
+header {
+    background: #34495e;
+    color: #fff;
+    padding: 20px;
+    text-align:center;
+    font-size:1.8rem;
+    font-weight:bold;
+}
+nav {
+    display:flex;
+    justify-content:center;
+    gap: 10px;
+    margin:20px 0;
+}
+nav button {
+    padding:10px 20px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    background:#2980b9;
+    color:white;
+    font-weight:500;
+    transition:0.2s all;
+}
+nav button.active, nav button:hover { background:#3498db; }
+.container { width:95%; max-width:1200px; margin:0 auto; }
+.card { background:#fff; padding:20px; border-radius:15px; box-shadow:0 8px 20px rgba(0,0,0,0.08); margin-bottom:30px; }
+canvas { display:block; margin:0 auto; max-width:90%; }
+table { width:100%; border-collapse: collapse; margin-top:10px; }
+th,td { border:1px solid #ccc; padding:8px; text-align:left; }
+th { background:#3498db; color:#fff; }
+tr:nth-child(even){background:#f9f9f9;}
+h2 { text-align:center; margin-bottom:15px; color:#34495e; }
+select { padding:5px 10px; margin-bottom:10px; border-radius:6px; border:1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<header>YouTube Comments Analyzer Dashboard</header>
+
+<nav>
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="positive">Positive Comments</button>
+    <button class="tab-btn" data-tab="negative">Negative Comments</button>
+</nav>
+
+<div class="container">
+    <input type="file" id="csvFile" accept=".csv">
+
+    <!-- DASHBOARD TAB -->
+    <div id="dashboard" class="tab-content">
+        <div class="card">
+            <h2>Sentiment Distribution</h2>
+            <canvas id="sentimentChart"></canvas>
+        </div>
+        <div class="card">
+            <h2>Overall Category Distribution</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+    </div>
+
+    <!-- POSITIVE COMMENTS TAB -->
+    <div id="positive" class="tab-content" style="display:none;">
+        <div class="card">
+            <h2>Positive Comments Category Distribution</h2>
+            <select id="positiveCategoryFilter">
+                <option value="all">All Categories</option>
+            </select>
+            <canvas id="positiveCategoryChart"></canvas>
+        </div>
+        <table id="positiveTable">
+            <thead><tr><th>Comment</th><th>Category</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <!-- NEGATIVE COMMENTS TAB -->
+    <div id="negative" class="tab-content" style="display:none;">
+        <div class="card">
+            <h2>Negative Comments Category Distribution</h2>
+            <select id="negativeCategoryFilter">
+                <option value="all">All Categories</option>
+            </select>
+            <canvas id="negativeCategoryChart"></canvas>
+        </div>
+        <table id="negativeTable">
+            <thead><tr><th>Comment</th><th>Category</th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// TAB NAVIGATION
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+tabButtons.forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+        tabButtons.forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        tabContents.forEach(tc=>{
+            tc.style.display = tc.id === target ? 'block':'none';
+        });
+
+        if(target==='positive' && positiveData) renderPositive();
+        if(target==='negative' && negativeData) renderNegative();
+    });
+});
+
+// CSV PARSER
+function parseCSV(csvText){
+    const lines = csvText.trim().split('\n');
+    const headers = lines[0].split(',').map(h=>h.trim());
+    lines.shift();
+    return lines.map(line=>{
+        const values=[];
+        let current='', inQuotes=false;
+        for(let char of line){
+            if(char=='"') inQuotes=!inQuotes;
+            else if(char==',' && !inQuotes){values.push(current.trim()); current='';}
+            else current+=char;
+        }
+        values.push(current.trim());
+        const obj={};
+        headers.forEach((h,i)=>obj[h]=values[i]||"");
+        return obj;
+    });
+}
+
+// COUNT BY FIELD
+function countByField(data,field){
+    const counts={};
+    data.forEach(row=>{
+        const val = row[field] || "unknown";
+        counts[val]=(counts[val]||0)+1;
+    });
+    return counts;
+}
+
+// CREATE CATEGORY BAR CHART
+function createCategoryChart(canvasId, data, color='#FF5722'){
+    const counts = countByField(data,'category');
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const labels = sorted.map(e=>e[0]), values = sorted.map(e=>e[1]);
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if(labels.length === 0){
+        ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#999";
+        ctx.textAlign = "center";
+        ctx.fillText("No data to display", ctx.canvas.width/2, ctx.canvas.height/2);
+        return;
+    }
+    new Chart(ctx,{
+        type:'bar',
+        data:{labels:labels,datasets:[{label:'Category',data:values,backgroundColor:color}]},
+        options:{responsive:true, plugins:{tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} comments`}}, legend:{display:false}},
+            scales:{y:{beginAtZero:true, ticks:{precision:0}}}}
+    });
+}
+
+// FILL TABLE
+function fillTable(tableId, data){
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    tbody.innerHTML="";
+    data.forEach(row=>{
+        const tr=document.createElement('tr');
+        const tdComment=document.createElement('td');
+        tdComment.textContent=row['clean_comment'];
+        const tdCat=document.createElement('td');
+        tdCat.textContent=row['category'];
+        tr.appendChild(tdComment);
+        tr.appendChild(tdCat);
+        tbody.appendChild(tr);
+    });
+}
+
+// FILTER TABLE BY CATEGORY
+function filterTableByCategory(data, tableId, category){
+    if(category==='all') fillTable(tableId, data);
+    else fillTable(tableId, data.filter(r=>r['category']===category));
+}
+
+// POSITIVE/NEGATIVE RENDER FUNCTIONS
+function renderPositive(){
+    const filteredData = positiveData.filter(r=>r['category']!=='general' && r['category']!=='other');
+    const categories = [...new Set(filteredData.map(r=>r['category']))];
+    const select = document.getElementById('positiveCategoryFilter');
+    select.innerHTML='<option value="all">All Categories</option>';
+    categories.forEach(cat=>{
+        const opt = document.createElement('option'); opt.value=cat; opt.textContent=cat;
+        select.appendChild(opt);
+    });
+    createCategoryChart('positiveCategoryChart', filteredData, '#2ecc71');
+    filterTableByCategory(filteredData, 'positiveTable', 'all');
+}
+
+function renderNegative(){
+    const filteredData = negativeData.filter(r=>r['category']!=='general' && r['category']!=='other');
+    const categories = [...new Set(filteredData.map(r=>r['category']))];
+    const select = document.getElementById('negativeCategoryFilter');
+    select.innerHTML='<option value="all">All Categories</option>';
+    categories.forEach(cat=>{
+        const opt = document.createElement('option'); opt.value=cat; opt.textContent=cat;
+        select.appendChild(opt);
+    });
+    createCategoryChart('negativeCategoryChart', filteredData, '#e74c3c');
+    filterTableByCategory(filteredData, 'negativeTable', 'all');
+}
+
+// HANDLE CATEGORY FILTER CHANGE
+document.getElementById('positiveCategoryFilter').addEventListener('change', function(){
+    filterTableByCategory(positiveData.filter(r=>r['category']!=='general' && r['category']!=='other'), 'positiveTable', this.value);
+});
+document.getElementById('negativeCategoryFilter').addEventListener('change', function(){
+    filterTableByCategory(negativeData.filter(r=>r['category']!=='general' && r['category']!=='other'), 'negativeTable', this.value);
+});
+
+let positiveData=[], negativeData=[];
+
+document.getElementById('csvFile').addEventListener('change', function(e){
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader=new FileReader();
+    reader.onload=function(e){
+        const data=parseCSV(e.target.result);
+
+        // Sentiment Chart
+        const sentimentCounts=countByField(data,'sentiment');
+        new Chart(document.getElementById('sentimentChart').getContext('2d'),{
+            type:'pie',
+            data:{labels:Object.keys(sentimentCounts), datasets:[{data:Object.values(sentimentCounts), backgroundColor:['#4CAF50','#F44336','#FFC107','#9E9E9E'], borderColor:'#fff', borderWidth:2}]},
+            options:{responsive:true, plugins:{tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${ctx.raw} comments`}}, legend:{position:'bottom'}}}
+        });
+
+        // Overall Category Chart
+        createCategoryChart('categoryChart', data, '#3498db');
+
+        // Positive & Negative comments
+        positiveData = data.filter(r=>r['sentiment']==='positive');
+        negativeData = data.filter(r=>r['sentiment']==='negative');
+
+        // Render initially active tab
+        const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+        if(activeTab==='positive') renderPositive();
+        if(activeTab==='negative') renderNegative();
+    };
+    reader.readAsText(file);
+});
+</script>
+</body>
+</html>
