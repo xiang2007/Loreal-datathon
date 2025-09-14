@@ -1,5 +1,5 @@
 import os, re, io
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 import pandas as pd
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
@@ -15,11 +15,7 @@ COMMENT_COLUMN = "textOriginal"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BATCH_SIZE = 64
 
-LABEL_MAP = {
-    0: "negative",
-    1: "positive",
-    2: "spam"
-}
+LABEL_MAP = {0:"negative", 1:"positive", 2:"spam"}
 
 CATEGORY_KEYWORDS = {
     "skincare": ["skin", "moisturizer", "serum", "lotion", "cream"],
@@ -59,39 +55,57 @@ def predict_batch(comments):
         labels = torch.argmax(probs, dim=-1)
     return labels.cpu().numpy()
 
-def process_csv(file):
-    df = pd.read_csv(file)
-    df.columns = df.columns.str.strip()
-    df["clean_comment"] = df[COMMENT_COLUMN].apply(clean_comment)
-    
-    all_labels = []
-    for i in tqdm(range(0, len(df), BATCH_SIZE)):
-        batch = df["clean_comment"].iloc[i:i+BATCH_SIZE].tolist()
-        labels = predict_batch(batch)
-        all_labels.extend(labels)
-    
-    df["sentiment"] = [LABEL_MAP.get(l, "unknown") for l in all_labels]
-    df["category"] = df["clean_comment"].apply(categorize_comment)
-    # Only keep necessary columns for frontend
-    return df[["clean_comment", "sentiment", "category"]].to_dict(orient="records")
+def process_files(files):
+    all_data = []
+    for file in files:
+        df = pd.read_csv(file)
+        df.columns = df.columns.str.strip()
+        df["clean_comment"] = df[COMMENT_COLUMN].apply(clean_comment)
+
+        all_labels = []
+        for i in tqdm(range(0, len(df), BATCH_SIZE)):
+            batch = df["clean_comment"].iloc[i:i+BATCH_SIZE].tolist()
+            labels = predict_batch(batch)
+            all_labels.extend(labels)
+
+        df["sentiment"] = [LABEL_MAP.get(l, "unknown") for l in all_labels]
+        df["category"] = df["clean_comment"].apply(categorize_comment)
+
+        all_data.append(df[["clean_comment", "sentiment", "category"]])
+    result_df = pd.concat(all_data, ignore_index=True)
+    return result_df
 
 # -------------------------
 # ROUTES
 # -------------------------
 @app.route('/')
 def index():
-    return render_template("index.html")  # Use the HTML dashboard from earlier
+    return render_template("index.html")
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    file = request.files['file']
+    if 'files' not in request.files:
+        return jsonify({"error":"No file uploaded"}), 400
+    files = request.files.getlist('files')
     try:
-        result = process_csv(file)
-        return jsonify(result)
+        df = process_files(files)
+        df_json = df.to_dict(orient="records")
+        # Save CSV to a BytesIO for download
+        csv_buffer = io.BytesIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        return jsonify({"data": df_json})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/download', methods=['POST'])
+def download():
+    files = request.files.getlist('files')
+    df = process_files(files)
+    csv_buffer = io.BytesIO()
+    df.to_csv(csv_buffer, index=False)
+    csv_buffer.seek(0)
+    return send_file(csv_buffer, mimetype="text/csv", as_attachment=True, download_name="labeled_comments.csv")
 
 if __name__ == "__main__":
     app.run(debug=True)
