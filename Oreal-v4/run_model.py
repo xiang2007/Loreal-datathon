@@ -31,7 +31,7 @@ COMMAND_KEYWORDS = ["subscribe", "follow", "like", "share", "comment", "click"]
 
 # Positive/negative emoji lists
 POSITIVE_EMOJIS = ["😊", "😍", "👍", "💖", "🥰"]
-NEGATIVE_EMOJIS = ["😡", "😢", "👎", "💔", "😞"]
+NEGATIVE_EMOJIS = ["😡", "😢", "👎", "💔", "😞", "🤮", "💩"]
 
 # -------------------------
 # LOAD MODEL
