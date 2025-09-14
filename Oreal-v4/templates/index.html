@@ -7,11 +7,12 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body {background:#f8f9fa;}
+body {background:#f8f9fa; font-family: 'Segoe UI', sans-serif;}
 header {background:#0d6efd;color:white;padding:20px;text-align:center;font-size:2rem;font-weight:700;}
 .nav-tabs .nav-link.active {background:#0d6efd;color:white;}
 .card {border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
 .spinner {display:none;text-align:center;margin:20px;}
+.table-responsive {max-height:400px; overflow-y:auto;}
 </style>
 </head>
 <body>
@@ -45,6 +46,7 @@ header {background:#0d6efd;color:white;padding:20px;text-align:center;font-size:
                 </div>
             </div>
         </div>
+
         <div id="positive" class="tab-pane" style="display:none;">
             <div class="card p-3 mb-3">
                 <h5>Positive Comments Category Distribution</h5>
@@ -53,8 +55,14 @@ header {background:#0d6efd;color:white;padding:20px;text-align:center;font-size:
                 </select>
                 <canvas id="positiveCategoryChart"></canvas>
             </div>
-            <div class="table-responsive"><table class="table table-striped" id="positiveTable"><thead><tr><th>Comment</th><th>Category</th></tr></thead><tbody></tbody></table></div>
+            <div class="table-responsive">
+                <table class="table table-striped" id="positiveTable">
+                    <thead><tr><th>Comment</th><th>Category</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
+
         <div id="negative" class="tab-pane" style="display:none;">
             <div class="card p-3 mb-3">
                 <h5>Negative Comments Category Distribution</h5>
@@ -63,18 +71,27 @@ header {background:#0d6efd;color:white;padding:20px;text-align:center;font-size:
                 </select>
                 <canvas id="negativeCategoryChart"></canvas>
             </div>
-            <div class="table-responsive"><table class="table table-striped" id="negativeTable"><thead><tr><th>Comment</th><th>Category</th></tr></thead><tbody></tbody></table></div>
+            <div class="table-responsive">
+                <table class="table table-striped" id="negativeTable">
+                    <thead><tr><th>Comment</th><th>Category</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
 </div>
 
 <script>
+let processedData = [], positiveData=[], negativeData=[];
+const charts = {}; // store chart instances
+const spinner = document.getElementById("spinner");
+
 // TAB NAVIGATION
 const tabs = document.querySelectorAll("#tabs .nav-link");
 const tabContents = document.querySelectorAll("#tabContents .tab-pane");
 tabs.forEach(tab => {
-    tab.addEventListener('click', ()=>{
+    tab.addEventListener('click', ()=> {
         tabs.forEach(t=>t.classList.remove('active'));
         tab.classList.add('active');
         tabContents.forEach(tc=>tc.style.display='none');
@@ -84,12 +101,13 @@ tabs.forEach(tab => {
     });
 });
 
-let data=[], positiveData=[], negativeData=[];
-
 // UTILS
 function countByField(data,field){
     const counts={};
-    data.forEach(r=>{counts[r[field]]=(counts[r[field]]||0)+1;});
+    data.forEach(r=>{
+        if(field==='category' && (r[field]==='general' || r[field]==='other')) return; // ignore general/other
+        counts[r[field]]=(counts[r[field]]||0)+1;
+    });
     return counts;
 }
 
@@ -104,19 +122,12 @@ function fillTable(tableId, rows){
     });
 }
 
-const charts = {}; // store chart instances
-
 function createBarChart(canvasId, data, color="#0d6efd"){
     const counts = countByField(data,"category");
     const labels = Object.keys(counts);
     const values = Object.values(counts);
     const ctx = document.getElementById(canvasId).getContext('2d');
-
-    // Destroy previous chart if exists
-    if(charts[canvasId]){
-        charts[canvasId].destroy();
-    }
-
+    if(charts[canvasId]) charts[canvasId].destroy();
     charts[canvasId] = new Chart(ctx,{
         type:"bar",
         data:{labels, datasets:[{label:"Category", data:values, backgroundColor:color}]},
@@ -124,8 +135,6 @@ function createBarChart(canvasId, data, color="#0d6efd"){
     });
 }
 
-
-// RENDER FUNCTIONS
 function renderPositive(){
     const filtered = positiveData.filter(r=>r.category!=="general" && r.category!=="other");
     const select=document.getElementById("positiveCategoryFilter");
@@ -134,9 +143,10 @@ function renderPositive(){
         const opt=document.createElement("option"); opt.value=cat; opt.textContent=cat;
         select.appendChild(opt);
     });
-    createBarChart("positiveCategoryChart",filtered,"#198754");
+    createBarChart("positiveCategoryChart", filtered,"#198754");
     fillTable("positiveTable", filtered);
 }
+
 function renderNegative(){
     const filtered = negativeData.filter(r=>r.category!=="general" && r.category!=="other");
     const select=document.getElementById("negativeCategoryFilter");
@@ -145,11 +155,11 @@ function renderNegative(){
         const opt=document.createElement("option"); opt.value=cat; opt.textContent=cat;
         select.appendChild(opt);
     });
-    createBarChart("negativeCategoryChart",filtered,"#dc3545");
+    createBarChart("negativeCategoryChart", filtered,"#dc3545");
     fillTable("negativeTable", filtered);
 }
 
-// FILTER EVENT
+// FILTER EVENTS
 document.getElementById("positiveCategoryFilter").addEventListener("change", e=>{
     const cat=e.target.value;
     const filtered = positiveData.filter(r=>r.category!=="general" && r.category!=="other");
@@ -162,24 +172,26 @@ document.getElementById("negativeCategoryFilter").addEventListener("change", e=>
 });
 
 // FILE UPLOAD
-const spinner = document.getElementById("spinner");
 document.getElementById("csvFiles").addEventListener("change", async e=>{
-    const files=e.target.files;
+    const files = [...e.target.files];
     if(!files.length) return;
     spinner.style.display="block";
     const formData = new FormData();
-    for(let f of files) formData.append("files",f);
+    for(let f of files) formData.append("files", f);
     try{
         const res = await fetch("/upload",{method:"POST",body:formData});
         const json = await res.json();
-        if(json.error) {alert(json.error); spinner.style.display="none"; return;}
-        data=json.data;
-        positiveData = data.filter(r=>r.sentiment==="positive");
-        negativeData = data.filter(r=>r.sentiment==="negative");
+        if(json.error){alert(json.error); spinner.style.display="none"; return;}
+        processedData = json.data;
+        spinner.style.display="none";
+
+        positiveData = processedData.filter(r=>r.sentiment==="positive");
+        negativeData = processedData.filter(r=>r.sentiment==="negative");
 
         // Dashboard charts
-        const sentimentCounts = countByField(data,"sentiment");
-        new Chart(document.getElementById("sentimentChart").getContext("2d"),{
+        const sentimentCounts = countByField(processedData,"sentiment");
+        if(charts['sentimentChart']) charts['sentimentChart'].destroy();
+        charts['sentimentChart'] = new Chart(document.getElementById("sentimentChart").getContext("2d"),{
             type:"pie",
             data:{
                 labels:Object.keys(sentimentCounts),
@@ -187,8 +199,7 @@ document.getElementById("csvFiles").addEventListener("change", async e=>{
             },
             options:{responsive:true}
         });
-        createBarChart("categoryChart",data);
-        spinner.style.display="none";
+        createBarChart("categoryChart", processedData);
 
         // Render active tab
         const activeTab = document.querySelector("#tabs .nav-link.active").dataset.tab;
@@ -198,17 +209,19 @@ document.getElementById("csvFiles").addEventListener("change", async e=>{
 });
 
 // DOWNLOAD BUTTON
-document.getElementById("downloadBtn").addEventListener("click", async ()=>{
-    const files=document.getElementById("csvFiles").files;
-    if(!files.length){alert("Upload files first!"); return;}
-    const formData = new FormData();
-    for(let f of files) formData.append("files",f);
-    const res=await fetch("/download",{method:"POST",body:formData});
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement("a"); a.href=url; a.download="labeled_comments.csv"; a.click();
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
+    if(processedData.length===0){alert("Upload files first!"); return;}
+    const csvHeaders = Object.keys(processedData[0]).join(",");
+    const csvRows = processedData.map(r => Object.values(r).map(v=>`"${v}"`).join(","));
+    const csvContent = [csvHeaders,...csvRows].join("\n");
+    const blob = new Blob([csvContent], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "labeled_comments.csv";
+    a.click();
+    URL.revokeObjectURL(url);
 });
 </script>
-
 </body>
 </html>
