@@ -19,7 +19,6 @@ You can download it here: [https://www.python.org/downloads/](https://www.python
 ### 2. Install Dependencies
 Open a terminal or command prompt, go to the project folder, and run:
 
-```bash
 pip install -r requirements.txt
 
 
